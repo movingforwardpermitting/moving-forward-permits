@@ -37,7 +37,28 @@ export default function Home() {
     Missouri: { "Trip Permit": 10, "Fuel Permit": 10, "Trip + Fuel Permit": 20 },
     Tennessee: { "Trip Permit": 30, "Fuel Permit": 30, "Trip + Fuel Permit": 60 },
     Virginia: { "Trip Permit": 15, "Fuel Permit": 20, "Trip + Fuel Permit": 35 },
-  };
+  };const requirements = {
+  Alabama: {
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "IFTA Status", "Travel Date"],
+  },
+  Florida: {
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "IFTA Status", "Travel Date"],
+  },
+  Kentucky: {
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "IFTA Status", "Travel Date"],
+  },
+  Virginia: {
+    "Trip Permit": ["Applicant Name", "Business Address", "Phone Number", "FEIN or SSN", "License Plate Number", "Plate State", "Plate Expiration", "Year/Make/Model", "VIN", "Unit Number"],
+    "Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
+    "Trip + Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "FEIN or SSN", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
+  },
+};
 
   const serviceFee = rush ? 50 : 35;
 
@@ -152,6 +173,45 @@ export default function Home() {
             <p>Service Fee: ${orderItems.length > 0 ? serviceFee : 0}</p>
             <h3>Total: ${total}</h3>
           </div>
+          <div style={{ marginTop: "30px", background: "#0b1b2b", padding: "24px", borderRadius: "16px" }}>
+  <h2>Required Information</h2>
+
+  {orderItems.length === 0 && <p>Add a permit to see required information.</p>}
+
+  {orderItems.map((item, index) => {
+    const fields = requirements[item.state]?.[item.permitType] || [
+      "Company Name",
+      "USDOT Number",
+      "VIN",
+      "Travel Date",
+      "Additional Notes",
+    ];
+
+    return (
+      <div key={item.id} style={{ marginTop: "20px", padding: "18px", background: "#111827", borderRadius: "14px" }}>
+        <h3>Request #{index + 1}: {item.state} {item.permitType}</h3>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginTop: "15px" }}>
+          {fields.map((field) => (
+            <div key={field}>
+              <label>{field}</label>
+              <input
+                placeholder={field}
+                style={{
+                  width: "100%",
+                  padding: "12px",
+                  marginTop: "6px",
+                  borderRadius: "10px",
+                  border: "none",
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  })}
+</div>
 <button
   onClick={async () => {
     const response = await fetch("/api/create-checkout-session", {
