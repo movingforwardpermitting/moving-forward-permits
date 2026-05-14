@@ -152,10 +152,39 @@ export default function Home() {
             <p>Service Fee: ${orderItems.length > 0 ? serviceFee : 0}</p>
             <h3>Total: ${total}</h3>
           </div>
+<button
+  onClick={async () => {
+    const response = await fetch("/api/create-checkout-session", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        total,
+      }),
+    });
 
-          <button style={{ marginTop: "24px", background: "#17c964", color: "white", border: "none", padding: "14px 22px", borderRadius: "12px", fontWeight: "bold", cursor: "pointer" }}>
-            Continue to Customer Information
-          </button>
+    const data = await response.json();
+
+    if (data.url) {
+      window.location.href = data.url;
+    }
+  }}
+  style={{
+    marginTop: "24px",
+    background: "#17c964",
+    color: "white",
+    border: "none",
+    padding: "14px 22px",
+    borderRadius: "12px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
+  Checkout Securely
+</button>
+
+          
         </div>
       </section>
     </main>

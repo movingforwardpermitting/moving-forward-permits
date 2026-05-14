@@ -5,6 +5,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "stripe": "^16.0.0",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest"
