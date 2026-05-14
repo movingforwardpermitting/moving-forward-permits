@@ -1,84 +1,163 @@
+"use client";
+
+import { useState } from "react";
+
 export default function Home() {
+  const [selectedService, setSelectedService] = useState("");
+  const [permitType, setPermitType] = useState("Trip Permit");
+  const [state, setState] = useState("Alabama");
+  const [rush, setRush] = useState(false);
+  const [orderItems, setOrderItems] = useState([]);
+
+  const services = [
+    "Trip Permits",
+    "Fuel Permits",
+    "DOT & MC Filing",
+    "BOC-3 Filing",
+    "UCR Registration",
+    "Compliance Support",
+  ];
+
+  const states = [
+    "Alabama",
+    "Florida",
+    "Georgia",
+    "Kentucky",
+    "Mississippi",
+    "Missouri",
+    "Tennessee",
+    "Texas",
+    "Virginia",
+  ];
+
+  const stateFees = {
+    Alabama: { "Trip Permit": 20, "Fuel Permit": 20, "Trip + Fuel Permit": 40 },
+    Florida: { "Trip Permit": 30, "Fuel Permit": 45, "Trip + Fuel Permit": 75 },
+    Kentucky: { "Trip Permit": 40, "Fuel Permit": 40, "Trip + Fuel Permit": 80 },
+    Missouri: { "Trip Permit": 10, "Fuel Permit": 10, "Trip + Fuel Permit": 20 },
+    Tennessee: { "Trip Permit": 30, "Fuel Permit": 30, "Trip + Fuel Permit": 60 },
+    Virginia: { "Trip Permit": 15, "Fuel Permit": 20, "Trip + Fuel Permit": 35 },
+  };
+
+  const serviceFee = rush ? 50 : 35;
+
+  const addToOrder = () => {
+    const fee = stateFees[state]?.[permitType] ?? null;
+
+    setOrderItems([
+      ...orderItems,
+      {
+        id: Date.now(),
+        permitType,
+        state,
+        stateFee: fee,
+      },
+    ]);
+  };
+
+  const removeItem = (id) => {
+    setOrderItems(orderItems.filter((item) => item.id !== id));
+  };
+
+  const stateFeeTotal = orderItems.reduce((total, item) => {
+    return total + (item.stateFee || 0);
+  }, 0);
+
+  const total = orderItems.length > 0 ? stateFeeTotal + serviceFee : 0;
+
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0b1b2b",
-        color: "white",
-        fontFamily: "Arial",
-        padding: "40px",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1100px",
-          margin: "0 auto",
-        }}
-      >
-        <h1
-          style={{
-            fontSize: "54px",
-            marginBottom: "20px",
-          }}
-        >
+    <main style={{ minHeight: "100vh", background: "#0b1b2b", color: "white", fontFamily: "Arial" }}>
+      <section style={{ padding: "50px 24px", maxWidth: "1150px", margin: "0 auto" }}>
+        <h1 style={{ fontSize: "48px", marginBottom: "18px" }}>
           Moving Forward Permitting Services
         </h1>
 
-        <p
-          style={{
-            fontSize: "22px",
-            lineHeight: "1.7",
-            maxWidth: "800px",
-            marginBottom: "40px",
-          }}
-        >
+        <p style={{ fontSize: "20px", lineHeight: "1.6", maxWidth: "760px" }}>
           Trucking permit processing and compliance support for owner-operators,
           dispatchers, and trucking companies.
         </p>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-            gap: "20px",
-          }}
-        >
-          {[
-            "Trip Permits",
-            "Fuel Permits",
-            "DOT & MC Filing",
-            "BOC-3 Filing",
-            "UCR Registration",
-            "Compliance Support",
-          ].map((service) => (
-            <div
-              key={service}
-              style={{
-                background: "#14283d",
-                padding: "25px",
-                borderRadius: "18px",
-              }}
-            >
+        <div style={{ marginTop: "35px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: "20px" }}>
+          {services.map((service) => (
+            <div key={service} style={{ background: "#14283d", padding: "24px", borderRadius: "18px" }}>
               <h3>{service}</h3>
-
               <button
-                style={{
-                  marginTop: "20px",
-                  background: "#17c964",
-                  color: "white",
-                  border: "none",
-                  padding: "12px 18px",
-                  borderRadius: "10px",
-                  cursor: "pointer",
-                  fontWeight: "bold",
+                onClick={() => {
+                  setSelectedService(service);
+                  document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" });
                 }}
+                style={{ marginTop: "18px", background: "#17c964", color: "white", border: "none", padding: "12px 18px", borderRadius: "10px", cursor: "pointer", fontWeight: "bold" }}
               >
                 Order Now
               </button>
             </div>
           ))}
         </div>
-      </div>
+      </section>
+
+      <section id="order-section" style={{ padding: "40px 24px", maxWidth: "1150px", margin: "0 auto" }}>
+        <div style={{ background: "#111827", padding: "30px", borderRadius: "22px" }}>
+          <h2>Start Your Order</h2>
+          {selectedService && <p>You selected: <strong>{selectedService}</strong></p>}
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "18px", marginTop: "25px" }}>
+            <div>
+              <label>Permit Type</label>
+              <select value={permitType} onChange={(e) => setPermitType(e.target.value)} style={{ width: "100%", padding: "14px", marginTop: "8px", borderRadius: "10px" }}>
+                <option>Trip Permit</option>
+                <option>Fuel Permit</option>
+                <option>Trip + Fuel Permit</option>
+              </select>
+            </div>
+
+            <div>
+              <label>State</label>
+              <select value={state} onChange={(e) => setState(e.target.value)} style={{ width: "100%", padding: "14px", marginTop: "8px", borderRadius: "10px" }}>
+                {states.map((s) => <option key={s}>{s}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label>Processing</label>
+              <select value={rush ? "Rush" : "Standard"} onChange={(e) => setRush(e.target.value === "Rush")} style={{ width: "100%", padding: "14px", marginTop: "8px", borderRadius: "10px" }}>
+                <option>Standard</option>
+                <option>Rush</option>
+              </select>
+            </div>
+          </div>
+
+          <button onClick={addToOrder} style={{ marginTop: "24px", background: "#facc15", color: "#111827", border: "none", padding: "14px 22px", borderRadius: "12px", fontWeight: "bold", cursor: "pointer" }}>
+            Add to Order
+          </button>
+        </div>
+
+        <div style={{ marginTop: "30px", background: "#111827", padding: "30px", borderRadius: "22px" }}>
+          <h2>Current Order</h2>
+
+          {orderItems.length === 0 && <p>No items added yet.</p>}
+
+          {orderItems.map((item, index) => (
+            <div key={item.id} style={{ background: "#0b1b2b", padding: "18px", borderRadius: "14px", marginTop: "14px" }}>
+              <p><strong>Item #{index + 1}</strong></p>
+              <p>{item.permitType} — {item.state}</p>
+              <p>State Fee: {item.stateFee ? `$${item.stateFee}` : "Quote required"}</p>
+              <button onClick={() => removeItem(item.id)} style={{ background: "transparent", color: "#f87171", border: "1px solid #f87171", padding: "8px 12px", borderRadius: "8px" }}>
+                Remove
+              </button>
+            </div>
+          ))}
+
+          <div style={{ marginTop: "25px", background: "#facc15", color: "#111827", padding: "22px", borderRadius: "16px" }}>
+            <p>State Fees: ${stateFeeTotal}</p>
+            <p>Service Fee: ${orderItems.length > 0 ? serviceFee : 0}</p>
+            <h3>Total: ${total}</h3>
+          </div>
+
+          <button style={{ marginTop: "24px", background: "#17c964", color: "white", border: "none", padding: "14px 22px", borderRadius: "12px", fontWeight: "bold", cursor: "pointer" }}>
+            Continue to Customer Information
+          </button>
+        </div>
+      </section>
     </main>
   );
 }
