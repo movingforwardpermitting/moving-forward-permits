@@ -3,19 +3,17 @@ import { createClient } from "@supabase/supabase-js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
-
-const supabase = createClient(supabaseUrl, supabaseKey);
-
 export async function POST(req) {
   try {
     const body = await req.json();
 
-    // SAVE ORDER FIRST
-    const { data: orderData, error: orderError } = await supabase
-      .from("permit_orders")
-      .insert([
+    try {
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL?.trim(),
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+      );
+
+      await supabase.from("permit_orders").insert([
         {
           company_name: body.companyName || null,
           usdot: body.usdot || null,
@@ -31,22 +29,14 @@ export async function POST(req) {
           order_status: "pending_review",
           order_items: body.orderItems || [],
         },
-      ])
-      .select();
-
-    if (orderError) {
-      console.error(orderError);
-      return Response.json(
-        { error: orderError.message },
-        { status: 500 }
-      );
+      ]);
+    } catch (supabaseError) {
+      console.log("Supabase save skipped:", supabaseError.message);
     }
 
-    // CREATE STRIPE SESSION
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-
       line_items: [
         {
           price_data: {
@@ -59,22 +49,12 @@ export async function POST(req) {
           quantity: 1,
         },
       ],
-
       success_url: "https://movingforwardpermits.com",
       cancel_url: "https://movingforwardpermits.com",
     });
 
-    return Response.json({
-      url: session.url,
-    });
+    return Response.json({ url: session.url });
   } catch (error) {
-    console.error(error);
-
-    return Response.json(
-      {
-        error: error.message,
-      },
-      { status: 500 }
-    );
+    return Response.json({ error: error.message }, { status: 500 });
   }
 }
