@@ -1,27 +1,56 @@
-import { createClient } from "@supabase/supabase-js";
+"use client";
 
-export default async function AdminPage() {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  );
+import { useEffect, useState } from "react";
 
-  const { data: orders, error } = await supabase
-    .from("permit_orders")
-    .select("*")
-    .order("created_at", { ascending: false });
+export default function AdminPage() {
+  const [password, setPassword] = useState("");
+  const [isAllowed, setIsAllowed] = useState(false);
+  const [orders, setOrders] = useState([]);
 
-  if (error) {
-    return <main style={{ padding: 40 }}>Error loading orders: {error.message}</main>;
+  const correctPassword = "ChangeThisPassword123";
+
+  useEffect(() => {
+    if (!isAllowed) return;
+
+    async function loadOrders() {
+      const response = await fetch("/api/admin-orders");
+      const data = await response.json();
+      setOrders(data.orders || []);
+    }
+
+    loadOrders();
+  }, [isAllowed]);
+
+  if (!isAllowed) {
+    return (
+      <main style={{ minHeight: "100vh", background: "#0b1b2b", color: "white", padding: 40 }}>
+        <h1>Admin Login</h1>
+        <input
+          type="password"
+          placeholder="Enter admin password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          style={{ padding: 14, borderRadius: 10, width: "300px" }}
+        />
+        <button
+          onClick={() => {
+            if (password === correctPassword) setIsAllowed(true);
+            else alert("Incorrect password");
+          }}
+          style={{ marginLeft: 10, padding: 14, borderRadius: 10 }}
+        >
+          Login
+        </button>
+      </main>
+    );
   }
 
   return (
     <main style={{ minHeight: "100vh", background: "#0b1b2b", color: "white", padding: 40 }}>
       <h1>Admin Dashboard</h1>
-      <p>Permit orders submitted through Moving Forward Permitting Services.</p>
 
       <div style={{ marginTop: 30, display: "grid", gap: 16 }}>
-        {orders?.map((order) => (
+        {orders.map((order) => (
           <div key={order.id} style={{ background: "#111827", padding: 20, borderRadius: 14 }}>
             <h3>Order #{order.id}</h3>
             <p><strong>Company:</strong> {order.company_name || "Not provided"}</p>
