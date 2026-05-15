@@ -196,8 +196,19 @@ export default function Home() {
             <div key={field}>
               <label>{field}</label>
               <input
-              <input
-type={field.includes("Travel Date") || field.includes("Beginning Travel Date") ? "date" : "text"}  placeholder={field.includes("Beginning Travel Date") ? "Beginning Travel Date" : field}
+<input
+  type={
+    field.includes("Travel Date") ||
+    field.includes("Beginning Travel Date")
+      ? "date"
+      : "text"
+  }
+  placeholder={
+    field.includes("Travel Date") ||
+    field.includes("Beginning Travel Date")
+      ? "Beginning Travel Date"
+      : field
+  }
   style={{
     width: "100%",
     padding: "12px",
