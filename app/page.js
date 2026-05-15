@@ -39,19 +39,19 @@ export default function Home() {
     Virginia: { "Trip Permit": 15, "Fuel Permit": 20, "Trip + Fuel Permit": 35 },
   };const requirements = {
   Alabama: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "IFTA Status", "Travel Date"],
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", " Beginning Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "IFTA Status", "Beginning Travel Date"],
   },
   Florida: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "IFTA Status", "Travel Date"],
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "Beginning Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "IFTA Status", "Beginning Travel Date"],
   },
   Kentucky: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "IFTA Status", "Travel Date"],
+    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "Beginning Travel Date"],
+    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "IFTA Status", "Beginning Travel Date"],
   },
   Virginia: {
     "Trip Permit": ["Applicant Name", "Business Address", "Phone Number", "FEIN or SSN", "License Plate Number", "Plate State", "Plate Expiration", "Year/Make/Model", "VIN", "Unit Number"],
@@ -183,7 +183,7 @@ export default function Home() {
       "Company Name",
       "USDOT Number",
       "VIN",
-      "Travel Date",
+      "Beginning Travel Date",
       "Additional Notes",
     ];
 
@@ -196,7 +196,17 @@ export default function Home() {
             <div key={field}>
               <label>{field}</label>
               <input
-                placeholder={field}
+              <input
+  type={field.includes("Beginning Travel Date") ? "date" : "text"}
+  placeholder={field.includes("Beginning Travel Date") ? "Beginning Travel Date" : field}
+  style={{
+    width: "100%",
+    padding: "12px",
+    marginTop: "6px",
+    borderRadius: "10px",
+    border: "none",
+  }}
+/>
                 style={{
                   width: "100%",
                   padding: "12px",
