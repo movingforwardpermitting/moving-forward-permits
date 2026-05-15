@@ -117,6 +117,8 @@ export default function Home() {
         },
         body: JSON.stringify({
           total,
+          email: "",
+orderItems,
           companyName: sharedInfo.companyName,
           usdot: sharedInfo.usdot,
           mcNumber: sharedInfo.mcNumber,
