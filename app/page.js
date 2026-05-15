@@ -8,14 +8,15 @@ export default function Home() {
   const [state, setState] = useState("Alabama");
   const [rush, setRush] = useState(false);
   const [orderItems, setOrderItems] = useState([]);
-const [sharedInfo, setSharedInfo] = useState({
-  companyName: "",
-  usdot: "",
-  mcNumber: "",
-  vin: "",
-  plateNumber: "",
-  phoneNumber: "",
-});
+  const [sharedInfo, setSharedInfo] = useState({
+    companyName: "",
+    usdot: "",
+    mcNumber: "",
+    vin: "",
+    plateNumber: "",
+    phoneNumber: "",
+  });
+
   const services = [
     "Trip Permits",
     "Fuel Permits",
@@ -44,28 +45,30 @@ const [sharedInfo, setSharedInfo] = useState({
     Missouri: { "Trip Permit": 10, "Fuel Permit": 10, "Trip + Fuel Permit": 20 },
     Tennessee: { "Trip Permit": 30, "Fuel Permit": 30, "Trip + Fuel Permit": 60 },
     Virginia: { "Trip Permit": 15, "Fuel Permit": 20, "Trip + Fuel Permit": 35 },
-  };const requirements = {
-  Alabama: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", " Beginning Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "IFTA Status", "Beginning Travel Date"],
-  },
-  Florida: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "Beginning Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "IFTA Status", "Beginning Travel Date"],
-  },
-  Kentucky: {
-    "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "Beginning Travel Date"],
-    "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
-    "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "IFTA Status", "Beginning Travel Date"],
-  },
-  Virginia: {
-    "Trip Permit": ["Applicant Name", "Business Address", "Phone Number", "FEIN or SSN", "License Plate Number", "Plate State", "Plate Expiration", "Year/Make/Model", "VIN", "Unit Number"],
-    "Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
-    "Trip + Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "FEIN or SSN", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
-  },
-};
+  };
+
+  const requirements = {
+    Alabama: {
+      "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "Beginning Travel Date"],
+      "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+      "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Plate Number", "IFTA Status", "Beginning Travel Date"],
+    },
+    Florida: {
+      "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "Beginning Travel Date"],
+      "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+      "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Truck Year/Make", "IFTA Status", "Beginning Travel Date"],
+    },
+    Kentucky: {
+      "Trip Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "Beginning Travel Date"],
+      "Fuel Permit": ["Company Name", "USDOT Number", "VIN", "IFTA Status", "Beginning Travel Date"],
+      "Trip + Fuel Permit": ["Company Name", "USDOT Number", "VIN", "Plate Number", "Registered Weight", "IFTA Status", "Beginning Travel Date"],
+    },
+    Virginia: {
+      "Trip Permit": ["Applicant Name", "Business Address", "Phone Number", "FEIN or SSN", "License Plate Number", "Plate State", "Plate Expiration", "Year/Make/Model", "VIN", "Unit Number"],
+      "Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
+      "Trip + Fuel Permit": ["Carrier Name", "Business Address", "Phone Number", "FEIN or SSN", "VIN", "Make", "Unit Number", "Year", "License Number", "License State", "License Expiration"],
+    },
+  };
 
   const serviceFee = rush ? 50 : 35;
 
@@ -87,11 +90,56 @@ const [sharedInfo, setSharedInfo] = useState({
     setOrderItems(orderItems.filter((item) => item.id !== id));
   };
 
-  const stateFeeTotal = orderItems.reduce((total, item) => {
-    return total + (item.stateFee || 0);
-  }, 0);
-
+  const stateFeeTotal = orderItems.reduce((total, item) => total + (item.stateFee || 0), 0);
   const total = orderItems.length > 0 ? stateFeeTotal + serviceFee : 0;
+
+  const getDefaultValue = (field) => {
+    if (field.includes("Company")) return sharedInfo.companyName;
+    if (field.includes("USDOT")) return sharedInfo.usdot;
+    if (field.includes("MC")) return sharedInfo.mcNumber;
+    if (field.includes("VIN")) return sharedInfo.vin;
+    if (field.includes("Plate")) return sharedInfo.plateNumber;
+    if (field.includes("Phone")) return sharedInfo.phoneNumber;
+    return "";
+  };
+
+  const handleCheckout = async () => {
+    if (orderItems.length === 0) {
+      alert("Please add at least one permit to your order.");
+      return;
+    }
+
+    try {
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          total,
+          companyName: sharedInfo.companyName,
+          usdot: sharedInfo.usdot,
+          mcNumber: sharedInfo.mcNumber,
+          vin: sharedInfo.vin,
+          plateNumber: sharedInfo.plateNumber,
+          phoneNumber: sharedInfo.phoneNumber,
+          permitType: orderItems[0]?.permitType,
+          state: orderItems[0]?.state,
+          rush,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "Stripe checkout failed.");
+      }
+    } catch (error) {
+      alert("Checkout error: " + error.message);
+    }
+  };
 
   return (
     <main style={{ minHeight: "100vh", background: "#0b1b2b", color: "white", fontFamily: "Arial" }}>
@@ -127,34 +175,27 @@ const [sharedInfo, setSharedInfo] = useState({
         <div style={{ background: "#111827", padding: "30px", borderRadius: "22px" }}>
           <h2>Shared Company & Truck Information</h2>
 
-<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "28px" }}>
-  {[
-    ["companyName", "Company Name"],
-    ["usdot", "USDOT Number"],
-    ["mcNumber", "MC Number"],
-    ["vin", "VIN"],
-    ["plateNumber", "Truck Plate Number"],
-    ["phoneNumber", "Phone Number"],
-  ].map(([key, label]) => (
-    <div key={key}>
-      <label>{label}</label>
-      <input
-        value={sharedInfo[key]}
-        onChange={(e) =>
-          setSharedInfo({ ...sharedInfo, [key]: e.target.value })
-        }
-        placeholder={label}
-        style={{
-          width: "100%",
-          padding: "12px",
-          marginTop: "6px",
-          borderRadius: "10px",
-          border: "none",
-        }}
-      />
-    </div>
-  ))}
-</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "28px" }}>
+            {[
+              ["companyName", "Company Name"],
+              ["usdot", "USDOT Number"],
+              ["mcNumber", "MC Number"],
+              ["vin", "VIN"],
+              ["plateNumber", "Truck Plate Number"],
+              ["phoneNumber", "Phone Number"],
+            ].map(([key, label]) => (
+              <div key={key}>
+                <label>{label}</label>
+                <input
+                  value={sharedInfo[key]}
+                  onChange={(e) => setSharedInfo({ ...sharedInfo, [key]: e.target.value })}
+                  placeholder={label}
+                  style={{ width: "100%", padding: "12px", marginTop: "6px", borderRadius: "10px", border: "none" }}
+                />
+              </div>
+            ))}
+          </div>
+
           <h2>Start Your Order</h2>
           {selectedService && <p>You selected: <strong>{selectedService}</strong></p>}
 
@@ -210,154 +251,58 @@ const [sharedInfo, setSharedInfo] = useState({
             <p>Service Fee: ${orderItems.length > 0 ? serviceFee : 0}</p>
             <h3>Total: ${total}</h3>
           </div>
+
           <div style={{ marginTop: "30px", background: "#0b1b2b", padding: "24px", borderRadius: "16px" }}>
-  <h2>Required Information</h2>
+            <h2>Required Information</h2>
 
-  {orderItems.length === 0 && <p>Add a permit to see required information.</p>}
+            {orderItems.length === 0 && <p>Add a permit to see required information.</p>}
 
-  {orderItems.map((item, index) => {
-    const fields = requirements[item.state]?.[item.permitType] || [
-      "Company Name",
-      "USDOT Number",
-      "VIN",
-      "Beginning Travel Date",
-      "Additional Notes",
-    ];
+            {orderItems.map((item, index) => {
+              const fields = requirements[item.state]?.[item.permitType] || [
+                "Company Name",
+                "USDOT Number",
+                "VIN",
+                "Beginning Travel Date",
+                "Additional Notes",
+              ];
 
-    return (
-      <div key={item.id} style={{ marginTop: "20px", padding: "18px", background: "#111827", borderRadius: "14px" }}>
-        <h3>Request #{index + 1}: {item.state} {item.permitType}</h3>
+              return (
+                <div key={item.id} style={{ marginTop: "20px", padding: "18px", background: "#111827", borderRadius: "14px" }}>
+                  <h3>Request #{index + 1}: {item.state} {item.permitType}</h3>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginTop: "15px" }}>
-          {fields.map((field) => (
-            <div key={field}>
-              <label>{field}</label>
-<input
-  type={
-    field.includes("Travel Date") ||
-    field.includes("Beginning Travel Date")
-      ? "date"
-      : "text"
-  }
-defaultValue={
-  field.includes("Company")
-    ? sharedInfo.companyName
-    : field.includes("USDOT")
-    ? sharedInfo.usdot
-    : field.includes("MC")
-    ? sharedInfo.mcNumber
-    : field.includes("VIN")
-    ? sharedInfo.vin
-    : field.includes("Plate")
-    ? sharedInfo.plateNumber
-    : field.includes("Phone")
-    ? sharedInfo.phoneNumber
-    : ""
-}
-  placeholder={
-    field.includes("Travel Date") ||
-    field.includes("Beginning Travel Date")
-      ? "Beginning Travel Date"
-      : field
-  }
-  style={{
-    width: "100%",
-    padding: "12px",
-    marginTop: "6px",
-    borderRadius: "10px",
-    border: "none",
-  }}
-/>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginTop: "15px" }}>
+                    {fields.map((field) => (
+                      <div key={field}>
+                        <label>{field}</label>
+                        <input
+                          type={field.includes("Travel Date") || field.includes("Beginning Travel Date") ? "date" : "text"}
+                          defaultValue={getDefaultValue(field)}
+                          placeholder={field.includes("Travel Date") || field.includes("Beginning Travel Date") ? "Beginning Travel Date" : field}
+                          style={{ width: "100%", padding: "12px", marginTop: "6px", borderRadius: "10px", border: "none" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
 
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  })}
-</div>
-<button
-  onClick={async () => {
-    alert("Checkout button clicked");
-    let response;
-
-try {
-  response = await fetch("/api/create-checkout-session", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      total,
-    }),
-  });
-} catch (err) {
-  alert("FETCH ERROR: " + err.message);
-  return;
-}
-      
-
-    const data = await response.json();
-
-if (data.url) {
-  window.location.href = data.url;
-} else {
-  alert(data.error || "Stripe checkout failed.");
-}
-  }}
-  style={{
-    marginTop: "24px",
-    background: "#17c964",
-    color: "white",
-    border: "none",
-    padding: "14px 22px",
-    borderRadius: "12px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  }}
->
-  <button
-  onClick={async () => {
-    alert("Checkout button clicked");
-
-    try {
-      const response = await fetch("/api/create-checkout-session", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ total }),
-      });
-
-      alert("Fetch completed");
-
-      const data = await response.json();
-
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert(data.error || "No Stripe URL returned.");
-      }
-    } catch (error) {
-      alert("Checkout error: " + error.message);
-    }
-  }}
-  style={{
-    marginTop: "24px",
-    background: "#17c964",
-    color: "white",
-    border: "none",
-    padding: "14px 22px",
-    borderRadius: "12px",
-    fontWeight: "bold",
-    cursor: "pointer",
-  }}
->
-  Checkout Securely
-</button>
-
-
-          
+          <button
+            onClick={handleCheckout}
+            style={{
+              marginTop: "24px",
+              background: "#17c964",
+              color: "white",
+              border: "none",
+              padding: "14px 22px",
+              borderRadius: "12px",
+              fontWeight: "bold",
+              cursor: "pointer",
+            }}
+          >
+            Checkout Securely
+          </button>
         </div>
       </section>
     </main>
