@@ -30,9 +30,8 @@ export async function POST(req) {
         },
       ],
 
-             success_url: "https://movingforwardpermits.com/success",
-
-      cancel_url: "https://movingforwardpermits.com",
+      success_url: "https://movingforwardpermits.com",
+cancel_url: "https://movingforwardpermits.com",
     });
 
     const { error } = await supabase.from("permit_orders").insert({
