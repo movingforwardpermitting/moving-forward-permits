@@ -239,7 +239,7 @@ const [sharedInfo, setSharedInfo] = useState({
       ? "date"
       : "text"
   }
-  value={
+defaultValue={
   field.includes("Company")
     ? sharedInfo.companyName
     : field.includes("USDOT")
