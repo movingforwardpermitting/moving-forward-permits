@@ -278,6 +278,7 @@ defaultValue={
 </div>
 <button
   onClick={async () => {
+    alert("Checkout button clicked");
     const response = await fetch("/api/create-checkout-session", {
       method: "POST",
       headers: {
