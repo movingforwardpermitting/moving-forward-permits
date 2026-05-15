@@ -291,9 +291,11 @@ defaultValue={
 
     const data = await response.json();
 
-    if (data.url) {
-      window.location.href = data.url;
-    }
+if (data.url) {
+  window.location.href = data.url;
+} else {
+  alert(data.error || "Stripe checkout failed.");
+}
   }}
   style={{
     marginTop: "24px",
