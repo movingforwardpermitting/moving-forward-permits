@@ -8,7 +8,14 @@ export default function Home() {
   const [state, setState] = useState("Alabama");
   const [rush, setRush] = useState(false);
   const [orderItems, setOrderItems] = useState([]);
-
+const [sharedInfo, setSharedInfo] = useState({
+  companyName: "",
+  usdot: "",
+  mcNumber: "",
+  vin: "",
+  plateNumber: "",
+  phoneNumber: "",
+});
   const services = [
     "Trip Permits",
     "Fuel Permits",
@@ -118,6 +125,36 @@ export default function Home() {
 
       <section id="order-section" style={{ padding: "40px 24px", maxWidth: "1150px", margin: "0 auto" }}>
         <div style={{ background: "#111827", padding: "30px", borderRadius: "22px" }}>
+          <h2>Shared Company & Truck Information</h2>
+
+<div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginBottom: "28px" }}>
+  {[
+    ["companyName", "Company Name"],
+    ["usdot", "USDOT Number"],
+    ["mcNumber", "MC Number"],
+    ["vin", "VIN"],
+    ["plateNumber", "Truck Plate Number"],
+    ["phoneNumber", "Phone Number"],
+  ].map(([key, label]) => (
+    <div key={key}>
+      <label>{label}</label>
+      <input
+        value={sharedInfo[key]}
+        onChange={(e) =>
+          setSharedInfo({ ...sharedInfo, [key]: e.target.value })
+        }
+        placeholder={label}
+        style={{
+          width: "100%",
+          padding: "12px",
+          marginTop: "6px",
+          borderRadius: "10px",
+          border: "none",
+        }}
+      />
+    </div>
+  ))}
+</div>
           <h2>Start Your Order</h2>
           {selectedService && <p>You selected: <strong>{selectedService}</strong></p>}
 
@@ -202,6 +239,21 @@ export default function Home() {
       ? "date"
       : "text"
   }
+  value={
+  field.includes("Company")
+    ? sharedInfo.companyName
+    : field.includes("USDOT")
+    ? sharedInfo.usdot
+    : field.includes("MC")
+    ? sharedInfo.mcNumber
+    : field.includes("VIN")
+    ? sharedInfo.vin
+    : field.includes("Plate")
+    ? sharedInfo.plateNumber
+    : field.includes("Phone")
+    ? sharedInfo.phoneNumber
+    : ""
+}
   placeholder={
     field.includes("Travel Date") ||
     field.includes("Beginning Travel Date")
