@@ -195,7 +195,6 @@ export default function Home() {
           {fields.map((field) => (
             <div key={field}>
               <label>{field}</label>
-              <input
 <input
   type={
     field.includes("Travel Date") ||
@@ -217,14 +216,7 @@ export default function Home() {
     border: "none",
   }}
 />
-                style={{
-                  width: "100%",
-                  padding: "12px",
-                  marginTop: "6px",
-                  borderRadius: "10px",
-                  border: "none",
-                }}
-              />
+
             </div>
           ))}
         </div>
