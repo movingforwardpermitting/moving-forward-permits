@@ -279,15 +279,23 @@ defaultValue={
 <button
   onClick={async () => {
     alert("Checkout button clicked");
-    const response = await fetch("/api/create-checkout-session", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        total,
-      }),
-    });
+    let response;
+
+try {
+  response = await fetch("/api/create-checkout-session", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      total,
+    }),
+  });
+} catch (err) {
+  alert("FETCH ERROR: " + err.message);
+  return;
+}
+      
 
     const data = await response.json();
 
