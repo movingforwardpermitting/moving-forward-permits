@@ -30,8 +30,7 @@ export async function POST(req) {
         },
       ],
 
-      success_url:
-        "https://movingforwardpermits.com/success?session_id={CHECKOUT_SESSION_ID}",
+             success_url: "https://movingforwardpermits.com/success",
 
       cancel_url: "https://movingforwardpermits.com",
     });
