@@ -316,8 +316,46 @@ if (data.url) {
     cursor: "pointer",
   }}
 >
+  <button
+  onClick={async () => {
+    alert("Checkout button clicked");
+
+    try {
+      const response = await fetch("/api/create-checkout-session", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ total }),
+      });
+
+      alert("Fetch completed");
+
+      const data = await response.json();
+
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert(data.error || "No Stripe URL returned.");
+      }
+    } catch (error) {
+      alert("Checkout error: " + error.message);
+    }
+  }}
+  style={{
+    marginTop: "24px",
+    background: "#17c964",
+    color: "white",
+    border: "none",
+    padding: "14px 22px",
+    borderRadius: "12px",
+    fontWeight: "bold",
+    cursor: "pointer",
+  }}
+>
   Checkout Securely
 </button>
+
 
           
         </div>
