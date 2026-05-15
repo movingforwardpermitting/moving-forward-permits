@@ -104,6 +104,10 @@ export default function Home() {
   };
 
   const handleCheckout = async () => {
+    if (!sharedInfo.companyName) {
+  alert("Please enter Company Name.");
+  return;
+}
     if (orderItems.length === 0) {
       alert("Please add at least one permit to your order.");
       return;
