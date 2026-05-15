@@ -12,7 +12,23 @@ export async function POST(req) {
   try {
     const body = await req.json();
 
-    const { error } = await supabase.from("permit_orders").insert({
+    const { data: insertedData, error } = await supabase
+  .from("permit_orders")
+  .insert({
+    company_name: body.companyName || null,
+    usdot: body.usdot || null,
+    mc_number: body.mcNumber || null,
+    vin: body.vin || null,
+    plate_number: body.plateNumber || null,
+    phone_number: body.phoneNumber || null,
+    permit_type: body.permitType || null,
+    permit_state: body.state || null,
+    processing_type: body.rush ? "Rush" : "Standard",
+    total: body.total || 0,
+    payment_status: "pending",
+  })
+  .select();
+  console.log("SUPABASE INSERT:", insertedData, error);
       company_name: body.companyName || null,
       usdot: body.usdot || null,
       mc_number: body.mcNumber || null,
