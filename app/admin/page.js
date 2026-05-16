@@ -57,7 +57,39 @@ export default function AdminPage() {
             <p><strong>Permit:</strong> {order.permit_type || "Not provided"} - {order.permit_state || "Not provided"}</p>
             <p><strong>Total:</strong> ${order.total}</p>
             <p><strong>Payment:</strong> {order.payment_status}</p>
-            <p><strong>Status:</strong> {order.order_status}</p>
+            <div style={{ marginTop: 10 }}>
+  <strong>Status:</strong>
+
+  <select
+    value={order.order_status || "pending_review"}
+    onChange={async (e) => {
+      const newStatus = e.target.value;
+
+      await fetch("/api/update-order-status", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id: order.id,
+          status: newStatus,
+        }),
+      });
+
+      window.location.reload();
+    }}
+    style={{
+      marginLeft: 10,
+      padding: 8,
+      borderRadius: 8,
+    }}
+  >
+    <option value="pending_review">Pending Review</option>
+    <option value="processing">Processing</option>
+    <option value="completed">Completed</option>
+    <option value="sent_to_customer">Sent To Customer</option>
+  </select>
+</div>
             <p><strong>Created:</strong> {new Date(order.created_at).toLocaleString()}</p>
           </div>
         ))}
