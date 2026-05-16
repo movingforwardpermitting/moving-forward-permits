@@ -192,7 +192,7 @@ export default function Home() {
             </div>
 
             <h1 style={{ fontSize: "clamp(40px, 6vw, 68px)", lineHeight: "1.02", margin: "0 0 24px", letterSpacing: "-1.5px" }}>
-              Keep your truck moving without the paperwork headache.
+              Fast trucking permits without the paperwork headache.
             </h1>
 
             <p style={{ fontSize: "19px", lineHeight: "1.8", color: "#cbd5e1", maxWidth: "720px" }}>
