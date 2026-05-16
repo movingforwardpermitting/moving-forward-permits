@@ -265,19 +265,31 @@ orderItems,
 
             {orderItems.map((item, index) => {
               const fields = requirements[item.state]?.[item.permitType] || [
-                "Company Name",
-                "USDOT Number",
-                "VIN",
-                "Beginning Travel Date",
-                "Additional Notes",
-              ];
+  "Company Name",
+  "USDOT Number",
+  "VIN",
+  "Beginning Travel Date",
+  "Additional Notes",
+];
 
+const filteredFields = fields.filter(
+  (field) =>
+    ![
+      "Company Name",
+      "USDOT Number",
+      "MC Number",
+      "VIN",
+      "Truck Plate Number",
+      "Plate Number",
+      "Phone Number",
+    ].includes(field)
+);
               return (
                 <div key={item.id} style={{ marginTop: "20px", padding: "18px", background: "#111827", borderRadius: "14px" }}>
                   <h3>Request #{index + 1}: {item.state} {item.permitType}</h3>
 
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "14px", marginTop: "15px" }}>
-                    {fields.map((field) => (
+                    {filteredFields.map((field) => (
                       <div key={field}>
                         <label>{field}</label>
                         <input
