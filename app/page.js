@@ -224,9 +224,10 @@ export default function Home() {
               </p>
 
               <button
-                onClick={() =>
-                  setSelectedService(service.title)
-                }
+                onClick={() => {
+  setSelectedService(service.title);
+  document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" });
+}}
                 style={{
                   marginTop: "16px",
                   background: "#16a34a",
@@ -245,6 +246,7 @@ export default function Home() {
         </div>
 
         <div
+        id="order-section"  
           style={{
             marginTop: "40px",
             background: "#0f172a",
