@@ -1,7 +1,9 @@
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req) {
   try {
@@ -32,6 +34,27 @@ export async function POST(req) {
       ]);
     } catch (supabaseError) {
       console.log("Supabase save skipped:", supabaseError.message);
+    }
+
+    try {
+      await resend.emails.send({
+        from: "Moving Forward Permits <onboarding@resend.dev>",
+        to: process.env.ADMIN_ALERT_EMAIL,
+        subject: "New Permit Order Received",
+        html: `
+          <h2>New Permit Order Received</h2>
+          <p><strong>Company:</strong> ${body.companyName || "Not provided"}</p>
+          <p><strong>USDOT:</strong> ${body.usdot || "Not provided"}</p>
+          <p><strong>MC Number:</strong> ${body.mcNumber || "Not provided"}</p>
+          <p><strong>Phone:</strong> ${body.phoneNumber || "Not provided"}</p>
+          <p><strong>Total:</strong> $${body.total || 0}</p>
+          <p><strong>Processing:</strong> ${body.rush ? "Rush" : "Standard"}</p>
+          <p><strong>Permit Items:</strong></p>
+          <pre>${JSON.stringify(body.orderItems || [], null, 2)}</pre>
+        `,
+      });
+    } catch (emailError) {
+      console.log("Email alert skipped:", emailError.message);
     }
 
     const session = await stripe.checkout.sessions.create({
