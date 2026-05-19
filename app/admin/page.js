@@ -7,7 +7,7 @@ export default function AdminPage() {
   const [isAllowed, setIsAllowed] = useState(false);
   const [orders, setOrders] = useState([]);
 
-  const correctPassword = "ChangeThisPassword123";
+  const correctPassword = "Iwillmakeit@21";
 
   useEffect(() => {
     if (!isAllowed) return;
