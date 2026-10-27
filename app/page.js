@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { stateFees, sharedFields, permitFields, prepareOrder } from "../lib/order.mjs";
 
 export default function Home() {
   const [selectedService, setSelectedService] = useState("");
@@ -56,41 +57,11 @@ export default function Home() {
     "Virginia",
   ];
 
-  const stateFees = {
-    Alabama: { "Trip Permit": 20, "Fuel Permit": 20, "Trip + Fuel Permit": 40 },
-    Florida: { "Trip Permit": 30, "Fuel Permit": 45, "Trip + Fuel Permit": 75 },
-    Kentucky: { "Trip Permit": 40, "Fuel Permit": 40, "Trip + Fuel Permit": 80 },
-    Missouri: { "Trip Permit": 10, "Fuel Permit": 10, "Trip + Fuel Permit": 20 },
-    Tennessee: { "Trip Permit": 30, "Fuel Permit": 30, "Trip + Fuel Permit": 60 },
-    Virginia: { "Trip Permit": 15, "Fuel Permit": 20, "Trip + Fuel Permit": 35 },
-  };
-
-  const requirements = {
-    Alabama: {
-      "Trip Permit": ["Beginning Travel Date"],
-      "Fuel Permit": ["IFTA Status", "Beginning Travel Date"],
-      "Trip + Fuel Permit": ["IFTA Status", "Beginning Travel Date"],
-    },
-    Florida: {
-      "Trip Permit": ["Truck Year/Make", "Beginning Travel Date"],
-      "Fuel Permit": ["IFTA Status", "Beginning Travel Date"],
-      "Trip + Fuel Permit": ["Truck Year/Make", "IFTA Status", "Beginning Travel Date"],
-    },
-    Kentucky: {
-      "Trip Permit": ["Registered Weight", "Beginning Travel Date"],
-      "Fuel Permit": ["IFTA Status", "Beginning Travel Date"],
-      "Trip + Fuel Permit": ["Registered Weight", "IFTA Status", "Beginning Travel Date"],
-    },
-    Virginia: {
-      "Trip Permit": ["Business Address", "FEIN or SSN", "Plate State", "Plate Expiration", "Year/Make/Model", "Unit Number"],
-      "Fuel Permit": ["Business Address", "Make", "Unit Number", "Year", "License State", "License Expiration"],
-      "Trip + Fuel Permit": ["Business Address", "FEIN or SSN", "Make", "Unit Number", "Year", "License State", "License Expiration"],
-    },
-  };
-
   const serviceFee = rush ? 50 : 35;
-  const stateFeeTotal = orderItems.reduce((sum, item) => sum + (item.stateFee || 0), 0);
-  const total = orderItems.length > 0 ? stateFeeTotal + serviceFee : 0;
+  const needsQuote = orderItems.some((item) => !Number.isFinite(item.stateFee));
+  const stateFeeTotal = orderItems.reduce((sum, item) => sum + (item.stateFee ?? 0), 0);
+  const serviceFeeTotal = orderItems.length * serviceFee;
+  const total = stateFeeTotal + serviceFeeTotal;
 
   const inputStyle = {
     width: "100%",
@@ -129,7 +100,7 @@ export default function Home() {
   };
 
   const addToOrder = () => {
-    const fee = stateFees[state]?.[permitType] ?? 0;
+    const fee = stateFees[state]?.[permitType] ?? null;
 
     setOrderItems([
       ...orderItems,
@@ -138,6 +109,7 @@ export default function Home() {
         permitType,
         state,
         stateFee: fee,
+        details: {},
       },
     ]);
   };
@@ -147,13 +119,10 @@ export default function Home() {
   };
 
   const handleCheckout = async () => {
-    if (!sharedInfo.companyName) {
-      alert("Please enter Company Name.");
-      return;
-    }
-
-    if (orderItems.length === 0) {
-      alert("Please add at least one permit to your order.");
+    try {
+      prepareOrder({ ...sharedInfo, rush, orderItems });
+    } catch (error) {
+      alert(error.message);
       return;
     }
 
@@ -164,15 +133,7 @@ export default function Home() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          total,
-          companyName: sharedInfo.companyName,
-          usdot: sharedInfo.usdot,
-          mcNumber: sharedInfo.mcNumber,
-          vin: sharedInfo.vin,
-          plateNumber: sharedInfo.plateNumber,
-          phoneNumber: sharedInfo.phoneNumber,
-          permitType: orderItems[0]?.permitType,
-          state: orderItems[0]?.state,
+          ...sharedInfo,
           rush,
           orderItems,
         }),
@@ -279,17 +240,10 @@ export default function Home() {
             <h3 style={{ fontSize: "26px", marginTop: 0 }}>Shared Company & Truck Information</h3>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
-              {[
-                ["companyName", "Company Name"],
-                ["usdot", "USDOT Number"],
-                ["mcNumber", "MC Number"],
-                ["vin", "VIN"],
-                ["plateNumber", "Truck Plate Number"],
-                ["phoneNumber", "Phone Number"],
-              ].map(([key, label]) => (
+              {sharedFields.map(([key, label]) => (
                 <div key={key}>
-                  <label style={labelStyle}>{label}</label>
-                  <input value={sharedInfo[key]} onChange={(e) => setSharedInfo({ ...sharedInfo, [key]: e.target.value })} placeholder={label} style={inputStyle} />
+                  <label htmlFor={key} style={labelStyle}>{label}</label>
+                  <input id={key} type={key === "email" ? "email" : key === "phoneNumber" ? "tel" : "text"} value={sharedInfo[key] || ""} onChange={(e) => setSharedInfo({ ...sharedInfo, [key]: e.target.value })} placeholder={label} style={inputStyle} />
                 </div>
               ))}
             </div>
@@ -352,7 +306,7 @@ export default function Home() {
                   <p style={{ color: "#94a3b8", margin: "0 0 6px" }}>Item #{index + 1}</p>
                   <strong>{item.permitType} — {item.state}</strong>
                   <p style={{ color: "#cbd5e1", marginBottom: 0 }}>
-                    State Fee: {item.stateFee ? `$${item.stateFee}` : "Quote required"}
+                    State Fee: {Number.isFinite(item.stateFee) ? `$${item.stateFee}` : "Quote required before payment"}
                   </p>
                 </div>
 
@@ -365,17 +319,17 @@ export default function Home() {
             <div style={{ marginTop: "22px", background: "#facc15", color: "#111827", borderRadius: "20px", padding: "22px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "16px" }}>
               <div>
                 <p style={{ margin: 0, fontWeight: "800" }}>State Fees</p>
-                <h3 style={{ margin: "6px 0 0" }}>${stateFeeTotal}</h3>
+                <h3 style={{ margin: "6px 0 0" }}>{needsQuote ? "Quote required" : `$${stateFeeTotal}`}</h3>
               </div>
 
               <div>
                 <p style={{ margin: 0, fontWeight: "800" }}>{rush ? "Rush Service Fee" : "Standard Service Fee"}</p>
-                <h3 style={{ margin: "6px 0 0" }}>${orderItems.length > 0 ? serviceFee : 0}</h3>
+                <h3 style={{ margin: "6px 0 0" }}>${serviceFeeTotal} (${serviceFee} per permit)</h3>
               </div>
 
               <div>
                 <p style={{ margin: 0, fontWeight: "800" }}>Estimated Total</p>
-                <h3 style={{ margin: "6px 0 0" }}>${total}</h3>
+                <h3 style={{ margin: "6px 0 0" }}>{needsQuote ? "Pending reviewed quote" : `$${total}`}</h3>
               </div>
             </div>
           </div>
@@ -386,7 +340,7 @@ export default function Home() {
             {orderItems.length === 0 && <p style={{ color: "#94a3b8" }}>Add a permit to see required state-specific information.</p>}
 
             {orderItems.map((item, index) => {
-              const fields = requirements[item.state]?.[item.permitType] || ["Beginning Travel Date", "Additional Notes"];
+              const fields = permitFields;
 
               return (
                 <div key={item.id} style={{ marginTop: "18px", padding: "20px", background: "#020617", border: "1px solid #1e293b", borderRadius: "20px" }}>
@@ -395,8 +349,8 @@ export default function Home() {
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: "16px" }}>
                     {fields.map((field) => (
                       <div key={field}>
-                        <label style={labelStyle}>{field}</label>
-                        <input type={field.includes("Travel Date") ? "date" : "text"} placeholder={field} style={inputStyle} />
+                        <label htmlFor={`${item.id}-${field}`} style={labelStyle}>{field}</label>
+                        <input id={`${item.id}-${field}`} type={field.includes("Travel Date") ? "date" : field === "Effective Time" ? "time" : "text"} value={item.details?.[field] || ""} onChange={(e) => setOrderItems((items) => items.map((entry) => entry.id === item.id ? { ...entry, details: { ...entry.details, [field]: e.target.value } } : entry))} placeholder={field === "Time Zone" ? "e.g. America/Chicago" : field} style={inputStyle} />
                       </div>
                     ))}
                   </div>
@@ -404,7 +358,9 @@ export default function Home() {
               );
             })}
 
-            <button onClick={handleCheckout} style={{ marginTop: "24px", background: "#16a34a", color: "white", border: "none", padding: "16px 24px", borderRadius: "16px", fontWeight: "900", cursor: "pointer", fontSize: "16px" }}>
+            {needsQuote && <p role="status">A selected permit needs a reviewed quote. Email <a href="mailto:movingforwardpermitting@gmail.com" style={{ color: "#fde68a" }}>movingforwardpermitting@gmail.com</a> before payment. Trip + fuel combination pricing also requires review.</p>}
+            <p style={{ color: "#cbd5e1" }}>Each request uses the truck above. Submit a separate order for another vehicle. Additional state-specific information may be requested after review. Do not enter SSNs or payment card details here.</p>
+            <button disabled={needsQuote || !orderItems.length} onClick={handleCheckout} style={{ marginTop: "24px", background: "#16a34a", color: "white", border: "none", padding: "16px 24px", borderRadius: "16px", fontWeight: "900", cursor: "pointer", fontSize: "16px" }}>
               Checkout Securely
             </button>
 

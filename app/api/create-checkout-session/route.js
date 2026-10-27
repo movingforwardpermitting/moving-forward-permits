@@ -1,13 +1,19 @@
 import Stripe from "stripe";
+import { prepareOrder } from "../../../lib/order.mjs";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
-const resend = new Resend(process.env.RESEND_API_KEY);
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const input = await req.json();
+    let order;
+    try { order = prepareOrder(input); }
+    catch (error) { return Response.json({ error: error.message }, { status: 400 }); }
+    const body = { ...order.customer, ...order, permitType: order.orderItems[0].permitType, state: order.orderItems[0].state };
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     try {
       const supabase = createClient(
@@ -15,7 +21,7 @@ export async function POST(req) {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
       );
 
-      await supabase.from("permit_orders").insert([
+      const { error: saveError } = await supabase.from("permit_orders").insert([
         {
           company_name: body.companyName || null,
           usdot: body.usdot || null,
@@ -32,26 +38,18 @@ export async function POST(req) {
           order_items: body.orderItems || [],
         },
       ]);
+      if (saveError) throw new Error("Order storage failed");
     } catch (supabaseError) {
-      console.log("Supabase save skipped:", supabaseError.message);
+      console.error("Order storage unavailable");
+      return Response.json({ error: "Unable to save your order. Please contact movingforwardpermitting@gmail.com before payment." }, { status: 503 });
     }
 
     try {
       await resend.emails.send({
         from: "Moving Forward Permits <onboarding@resend.dev>",
         to: process.env.ADMIN_ALERT_EMAIL,
-        subject: "New Permit Order Received",
-        html: `
-          <h2>New Permit Order Received</h2>
-          <p><strong>Company:</strong> ${body.companyName || "Not provided"}</p>
-          <p><strong>USDOT:</strong> ${body.usdot || "Not provided"}</p>
-          <p><strong>MC Number:</strong> ${body.mcNumber || "Not provided"}</p>
-          <p><strong>Phone:</strong> ${body.phoneNumber || "Not provided"}</p>
-          <p><strong>Total:</strong> $${body.total || 0}</p>
-          <p><strong>Processing:</strong> ${body.rush ? "Rush" : "Standard"}</p>
-          <p><strong>Permit Items:</strong></p>
-          <pre>${JSON.stringify(body.orderItems || [], null, 2)}</pre>
-        `,
+        subject: "New Permit Request — Payment Not Confirmed",
+        html: `<h2>New permit request — payment not confirmed</h2><p>Standard service: $35 per permit. Rush service: $50 per permit.</p><pre>${escapeHtml(JSON.stringify(body, null, 2))}</pre>`,
       });
     } catch (emailError) {
       console.log("Email alert skipped:", emailError.message);
@@ -60,24 +58,22 @@ export async function POST(req) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: "Moving Forward Permit Services",
-            },
-            unit_amount: Math.round(body.total * 100),
-          },
-          quantity: 1,
+      customer_email: body.email,
+      line_items: body.orderItems.map((item) => ({
+        price_data: {
+          currency: "usd",
+          product_data: { name: `${item.state} ${item.permitType}`, description: `State fee $${item.stateFee}; service fee $${item.serviceFee}` },
+          unit_amount: Math.round(item.subtotal * 100),
         },
-      ],
+        quantity: 1,
+      })),
       success_url: "https://movingforwardpermits.com",
       cancel_url: "https://movingforwardpermits.com",
     });
 
     return Response.json({ url: session.url });
   } catch (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    console.error("Checkout creation failed");
+    return Response.json({ error: "Checkout unavailable. Please contact movingforwardpermitting@gmail.com." }, { status: 500 });
   }
 }
