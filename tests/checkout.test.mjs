@@ -80,3 +80,13 @@ test('signed but wrong-amount webhook never marks order paid',async()=>{
  const h=await webhookHarness(session,order({quote:{totalCents:13000},quote_revision:'rev1',stripe_session_id:'cs_test',payment_status:'pending'}));
  assert.equal((await h.post()).status,500);assert.equal(h.get().updates,0);assert.equal(h.get().mailCalls,0);
 });
+
+test('email test cannot send before admin authentication',async()=>{
+ let sends=0;const route=await moduleWithMocks('../app/api/admin-email-test/route.js',{'node:crypto':{randomUUID:()=> 'test-id'},resend:{Resend:class{constructor(){this.emails={send:async()=>{sends++;return {data:{id:'test'}};}};}}},'../../../lib/server.mjs':{requireAdmin:async()=>{throw Object.assign(new Error('Unauthorized'),{status:401});},required:()=> 'test',failure:e=>Response.json({error:e.message},{status:e.status||503})}});
+ assert.equal((await route.POST(new Request('https://example.invalid',{method:'POST'}))).status,401);assert.equal(sends,0);
+});
+test('email test recipient is the verified admin; provider errors are not success',async()=>{
+ let recipient;
+ const route=await moduleWithMocks('../app/api/admin-email-test/route.js',{'node:crypto':{randomUUID:()=> 'test-id'},resend:{Resend:class{constructor(){this.emails={send:async msg=>{recipient=msg.to;return {error:{message:'rejected'},data:null};}};}}},'../../../lib/server.mjs':{requireAdmin:async()=>({db:{rpc:async()=>({data:true})},user:{id:'admin',email:'admin@example.invalid',email_confirmed_at:'2026-10-27'}}),required:()=> 'test',failure:e=>Response.json({error:e.message},{status:e.status||503})}});
+ const response=await route.POST(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({to:'other@example.invalid'})}));assert.equal(response.status,502);assert.equal(recipient,'admin@example.invalid');
+});
