@@ -1,106 +1,40 @@
-"use client";
-
-import { useEffect, useState } from "react";
-
-export default function AdminPage() {
-  const [password, setPassword] = useState("");
-  const [isAllowed, setIsAllowed] = useState(false);
-  const [orders, setOrders] = useState([]);
-
-  const correctPassword = "Iwillmakeit@21";
-
-  useEffect(() => {
-    if (!isAllowed) return;
-
-    async function loadOrders() {
-      const response = await fetch("/api/admin-orders");
-      const data = await response.json();
-      setOrders(data.orders || []);
-    }
-
-    loadOrders();
-  }, [isAllowed]);
-
-  if (!isAllowed) {
-    return (
-      <main style={{ minHeight: "100vh", background: "#020617", color: "white", padding: 40, fontFamily: "Arial" }}>
-        <h1>Admin Login</h1>
-
-        <input
-          type="password"
-          placeholder="Enter admin password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 14, borderRadius: 10, width: 300, marginRight: 10 }}
-        />
-
-        <button
-          onClick={() => {
-            if (password === correctPassword) {
-              setIsAllowed(true);
-            } else {
-              alert("Incorrect password");
-            }
-          }}
-          style={{ padding: 14, borderRadius: 10, cursor: "pointer" }}
-        >
-          Login
-        </button>
-      </main>
-    );
+'use client';
+import { useEffect, useState } from 'react';
+import { createClient } from '@supabase/supabase-js';
+let browserClient;
+function authClient() { return browserClient ||= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:true}}); }
+const money = cents => `$${(cents/100).toFixed(2)}`;
+const statusLabels = {pending_review:'Needs review',missing_information:'Missing information',quote_preparing:'Preparing payment link',payment_requested:'Awaiting payment',paid:'Paid — ready to process',processing:'Processing',issued:'Issued — review for delivery',delivery_preparing:'Preparing delivery',delivery_queued:'Delivery queued',delivery_sent:'Email accepted by provider',blocked:'Blocked',cancelled:'Cancelled'};
+export default function Admin() {
+  const [session,setSession] = useState(null), [email,setEmail] = useState(''), [password,setPassword] = useState('');
+  const [orders,setOrders] = useState([]), [pending,setPending] = useState([]), [selected,setSelected] = useState(null);
+  const [lines,setLines] = useState([]), [confirmed,setConfirmed] = useState(false), [files,setFiles] = useState([]), [busy,setBusy] = useState(false), [message,setMessage] = useState('');
+  useEffect(()=>{let unsubscribe;try {const {data}=authClient().auth.onAuthStateChange((_event,next)=>setSession(next));unsubscribe=data.subscription;}catch{setMessage('Admin authentication is not configured yet.');}return()=>unsubscribe?.unsubscribe();},[]);
+  async function api(path,body,form=false) {
+    const {data}=await authClient().auth.getSession();
+    if(!data.session)throw new Error('Please sign in again.');
+    const response=await fetch(path,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${data.session.access_token}`,...(!form&&body?{'Content-Type':'application/json'}:{})},...(body?{body:form?body:JSON.stringify(body)}:{})});
+    const result=await response.json();if(!response.ok)throw new Error(result.error||'Request failed.');return result;
   }
-
-  return (
-    <main style={{ minHeight: "100vh", background: "#020617", color: "white", padding: 40, fontFamily: "Arial" }}>
-      <h1>Admin Dashboard</h1>
-      <p>Permit orders submitted through Moving Forward Permitting Services.</p>
-
-      <div style={{ marginTop: 30, display: "grid", gap: 16 }}>
-        {orders.length === 0 && <p>No orders found yet.</p>}
-
-        {orders.map((order) => (
-          <div key={order.id} style={{ background: "#0f172a", border: "1px solid #1e293b", padding: 20, borderRadius: 14 }}>
-            <h3>Order #{order.id}</h3>
-            <p><strong>Company:</strong> {order.company_name || "Not provided"}</p>
-            <p><strong>USDOT:</strong> {order.usdot || "Not provided"}</p>
-            <p><strong>MC:</strong> {order.mc_number || "Not provided"}</p>
-            <p><strong>Phone:</strong> {order.phone_number || "Not provided"}</p>
-            <p><strong>Permit:</strong> {order.permit_type || "Not provided"} - {order.permit_state || "Not provided"}</p>
-            <p><strong>Total:</strong> ${order.total}</p>
-            <p><strong>Payment:</strong> {order.payment_status}</p>
-
-            <div style={{ marginTop: 10 }}>
-              <strong>Status:</strong>
-
-              <select
-                value={order.order_status || "pending_review"}
-                onChange={async (e) => {
-                  await fetch("/api/update-order-status", {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify({
-                      id: order.id,
-                      status: e.target.value,
-                    }),
-                  });
-
-                  window.location.reload();
-                }}
-                style={{ marginLeft: 10, padding: 8, borderRadius: 8 }}
-              >
-                <option value="pending_review">Pending Review</option>
-                <option value="processing">Processing</option>
-                <option value="completed">Completed</option>
-                <option value="sent_to_customer">Sent To Customer</option>
-              </select>
-            </div>
-
-            <p><strong>Created:</strong> {new Date(order.created_at).toLocaleString()}</p>
-          </div>
-        ))}
-      </div>
-    </main>
-  );
+  async function load(){const result=await api('/api/admin-orders');setOrders(result.orders);setPending(result.pendingNotifications||[]);setSelected(current=>current?result.orders.find(o=>o.order_number===current.order_number)||null:null);}
+  useEffect(()=>{if(session)load().catch(e=>setMessage(e.message));else{setOrders([]);setSelected(null);}},[session]);
+  async function act(action){setBusy(true);setMessage('');try{await action();await load();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
+  function choose(order){setSelected(order);setConfirmed(false);setFiles([]);setLines((order.order_items||[]).map((item,i)=>({stateCents:order.quote?.lines?.[i]?.stateCents??'',otherCents:order.quote?.lines?.[i]?.otherCents??'',source:order.quote?.lines?.[i]?.source||'',verifiedOn:new Date().toISOString().slice(0,10),serviceCount:order.quote?.lines?.[i]?.serviceCount||1,combinationTreatment:order.quote?.lines?.[i]?.combinationTreatment||''})));}
+  function edit(i,key,value){setLines(lines.map((line,j)=>j===i?{...line,[key]:value}:line));setConfirmed(false);}
+  const quoteTotal=lines.reduce((total,line)=>total+Number(line.stateCents||0)+Number(line.otherCents||0)+(selected?.processing_type==='Rush'?5000:3500)*Number(line.serviceCount||1),0);
+  return <main><style>{`*{box-sizing:border-box}body{margin:0;background:#07111e;color:#f8fafc;font-family:Arial,sans-serif}main{max-width:1250px;margin:auto;padding:32px 20px}h1{margin-bottom:8px}p{line-height:1.6;color:#b9c9db}input,select,textarea{display:block;width:100%;background:#081421;border:1px solid #52677e;color:white;padding:11px;border-radius:8px;margin:8px 0 14px;font:inherit}input[type=checkbox]{display:inline;width:auto;margin-right:10px}label{font-size:14px}button{padding:11px 16px;border-radius:8px;border:1px solid #62758c;background:#f5cf68;color:#102131;font-weight:bold;cursor:pointer;margin:4px}button:disabled{opacity:.45;cursor:wait}.card{background:#102034;border:1px solid #33465e;border-radius:14px;padding:22px;margin:18px 0;overflow-wrap:anywhere}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:16px}.notice{padding:18px;background:#344022;margin:16px 0;line-height:1.6}.details{white-space:pre-wrap;font-size:13px;color:#c4d2e0}a{color:#f5cf68}`}</style>
+    <h1>Moving Forward · Orders</h1><p>Review requests, confirm pricing, track payment and deliver issued permits.</p>{message&&<div className="notice" role="status">{message}</div>}
+    {!session?<form className="card" style={{maxWidth:430}} onSubmit={e=>{e.preventDefault();act(async()=>{const result=await authClient().auth.signInWithPassword({email,password});if(result.error)throw new Error('Unable to sign in. Check your account details.');setPassword('');setSession(result.data.session);});}}><h2>Admin sign in</h2><label>Email<input type="email" autoComplete="username" value={email} onChange={e=>setEmail(e.target.value)} required/></label><label>Password<input type="password" autoComplete="current-password" value={password} onChange={e=>setPassword(e.target.value)} required/></label><button disabled={busy}>Sign in</button><p>Access is limited to approved administrator accounts.</p></form>:<>
+      <button disabled={busy} onClick={()=>act(load)}>Refresh orders</button><button disabled={busy} onClick={()=>act(async()=>{const r=await api('/api/notifications',{});setMessage(`Notifications: ${r.sent} sent, ${r.failed} need retry.`);})}>Send / retry queued notifications</button><button onClick={async()=>{await authClient().auth.signOut();setSession(null);}}>Sign out</button>
+      {!!pending.length&&<div className="card"><h3>Notifications awaiting provider acceptance ({pending.length})</h3>{pending.map(n=><p key={n.id}>{n.subject} · attempts {n.attempts} {n.last_error&&'· needs retry'}</p>)}</div>}
+      <div className="grid"><div><h2>Recent requests</h2>{!orders.length&&<p>No requests found.</p>}{orders.map(order=><button key={order.order_number} className="card" style={{display:'block',width:'100%',textAlign:'left',color:'white'}} onClick={()=>choose(order)}><strong>{order.company_name}</strong><p>{statusLabels[order.order_status]||order.order_status} · {order.processing_type}<br/>{order.order_number}<br/>{new Date(order.created_at).toLocaleString()}</p></button>)}</div>
+      <div style={{gridColumn:'span 1'}}>{selected&&<div className="card"><h2>{selected.company_name}</h2><p>Reference: {selected.order_number}<br/>Payment: {selected.payment_status}<br/>Status: {statusLabels[selected.order_status]||selected.order_status}</p><h3>Carrier & truck</h3><dl>{Object.entries(selected.customer_details||{}).map(([key,value])=><div key={key}><dt style={{color:'#90a8c2',marginTop:10}}>{key}</dt><dd style={{margin:0}}>{String(value)}</dd></div>)}</dl>
+        <h3>Permit requests</h3>{(selected.order_items||[]).map((item,i)=><div className="card" key={i}><strong>{item.state} · {item.permitType}</strong><div className="details">{Object.entries(item.details||{}).map(([k,v])=>`${k}: ${v}`).join('\n')}</div></div>)}
+        {['pending_review','missing_information','quote_preparing','payment_requested'].includes(selected.order_status)&&<><h3>Reviewed quote</h3>{lines.map((line,i)=><fieldset key={i} style={{border:'1px solid #52677e',margin:'16px 0'}} disabled={['quote_preparing','payment_requested'].includes(selected.order_status)}><legend>{selected.order_items[i].state} · {selected.order_items[i].permitType}</legend><label>Verified state fee (USD)<input type="number" min="0" step="0.01" value={line.stateCents===''?'':Number(line.stateCents)/100} onChange={e=>edit(i,'stateCents',e.target.value===''?'':Math.round(Number(e.target.value)*100))}/></label><label>Other required provider / portal fee (USD; enter 0 if none)<input type="number" min="0" step="0.01" value={line.otherCents===''?'':Number(line.otherCents)/100} onChange={e=>edit(i,'otherCents',e.target.value===''?'':Math.round(Number(e.target.value)*100))}/></label><label>Official source / authorized provider URL<input type="url" value={line.source} onChange={e=>edit(i,'source',e.target.value)}/></label><label>Date verified<input type="date" value={line.verifiedOn} onChange={e=>edit(i,'verifiedOn',e.target.value)}/></label>{selected.order_items[i].permitType==='Trip + Fuel Permit'&&<><label>Service fees charged<select value={line.serviceCount} onChange={e=>edit(i,'serviceCount',Number(e.target.value))}><option value={1}>One state-issued combination permit — one service fee</option><option value={2}>Two separate permits — two service fees</option></select></label><label>Explain confirmed issuance / fee treatment<input value={line.combinationTreatment} onChange={e=>edit(i,'combinationTreatment',e.target.value)}/></label></>}</fieldset>)}<p><strong>Reviewed total: {money(['quote_preparing','payment_requested'].includes(selected.order_status)?(selected.quote?.totalCents??0):quoteTotal)}</strong></p><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>I reviewed eligibility, vehicle, dates, state/provider fees, rush availability and combination treatment. I authorize this payment request.</label><button disabled={busy||(!confirmed&&!['quote_preparing','payment_requested'].includes(selected.order_status))} onClick={()=>act(async()=>{const result=await api('/api/admin-quote',{orderNumber:selected.order_number,lines,reviewConfirmed:confirmed});setMessage(`Payment link queued for customer: ${result.url}`);})}>{selected.order_status==='payment_requested'?'Retry quote notification':selected.order_status==='quote_preparing'?'Resume payment link':'Approve quote & email payment link'}</button></>}
+        {['pending_review','missing_information','paid','processing','blocked'].includes(selected.order_status)&&<div><h3>Update progress</h3>{({pending_review:['missing_information','cancelled'],missing_information:['pending_review','cancelled'],paid:['processing','blocked'],processing:['issued','blocked'],blocked:['processing']}[selected.order_status]||[]).map(status=><button disabled={busy} key={status} onClick={()=>act(async()=>{await api('/api/update-order-status',{orderNumber:selected.order_number,status});setMessage('Status saved.');})}>{statusLabels[status]}</button>)}</div>}
+        {selected.order_status==='issued'&&<div><h3>Review & deliver issued permits</h3><input type="file" accept="application/pdf" multiple onChange={e=>{setFiles(Array.from(e.target.files));setConfirmed(false);}}/><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>I checked every issued permit against the approved carrier, VIN, state, permit type and validity dates. I authorize email delivery to {selected.contact_email}.</label><button disabled={busy||!confirmed||!files.length} onClick={()=>act(async()=>{const form=new FormData();form.set('orderNumber',selected.order_number);form.set('reviewConfirmed','true');files.forEach(file=>form.append('permits',file));const result=await api('/api/admin-delivery',form,true);setMessage(result.message);})}>Upload & email reviewed permits</button></div>}
+        {selected.order_status==='delivery_preparing'&&<p>A delivery is in progress or needs recovery. Contact support before retrying; do not create a second delivery.</p>}
+      </div>}</div></div>
+    </>}
+  </main>;
 }

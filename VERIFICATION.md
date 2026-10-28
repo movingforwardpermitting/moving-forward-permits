@@ -1,3 +1,5 @@
+> Historical verification findings. The subsequent launch implementation addresses several code issues below. See [LAUNCH.md](LAUNCH.md) for the current implementation, account checks, applied permission fix and remaining launch gates. The full workflow is not live yet.
+
 # Permit website verification — October 27, 2026
 
 Status: NOT ready for production approval. Draft PR #1 remains unmerged.

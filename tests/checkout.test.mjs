@@ -1,88 +1,82 @@
-// Run: node --experimental-vm-modules --test tests/checkout.test.mjs
-// All external services are simulated. No network, payments, orders, or emails.
-import { test } from 'node:test';
+// Isolated tests: no live database, email, or payment calls.
+import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import * as order from '../lib/order.mjs';
+import {readFileSync} from 'node:fs';
+import {prepareOrder,sharedFields,permitFields} from '../lib/order.mjs';
+import {reviewedQuote,verifyPayment} from '../lib/quote.mjs';
+const customer=Object.fromEntries(sharedFields.map(([key])=>[key,'Example']));
+Object.assign(customer,{usdot:'1234567',vin:'1M8GDM9AXKP042788',email:'example@example.com',registeredWeight:'80000',axles:'5',irpStatus:'no',iftaStatus:'no',phoneNumber:'2055550100'});
+const details=Object.fromEntries(permitFields.map(field=>[field,'Example']));
+Object.assign(details,{'Beginning Travel Date':'2026-11-01','Trip End Date':'2026-11-02','Effective Time':'08:00','Time Zone':'America/Chicago'});
+const item={state:'Georgia',permitType:'Trip Permit',details,stateFee:0};
+const input=(extra={})=>({...customer,orderItems:[item,item],total:1,...extra});
+const order=(extra={})=>({order_number:'order-1',payment_status:'not_requested',processing_type:'Standard',order_items:prepareOrder(input()).orderItems,...extra});
+const line=(extra={})=>({stateCents:3000,otherCents:0,source:'https://dor.georgia.gov/georgia-trucking-portal-faqs',verifiedOn:'2026-10-27',...extra});
+const quote=(extra={})=>({reviewConfirmed:true,lines:[line(),line()],...extra});
 
-const customer = Object.fromEntries(order.sharedFields.map(([key]) => [key, 'Example']));
-Object.assign(customer, { usdot: '1234567', vin: '1M8GDM9AXKP042788', email: 'example@example.com' });
-const details = Object.fromEntries(order.permitFields.map((field) => [field, 'Example']));
-details['Beginning Travel Date'] = '2026-11-01';
-const item = { state: 'Alabama', permitType: 'Trip Permit', stateFee: 0, details };
-const payload = (extra = {}) => ({ ...customer, orderItems: [item, item], total: 1, ...extra });
-
-async function handler({ storageError = false, stripeError = false } = {}) {
-  const calls = { inserts: [], emails: [], sessions: [] };
-  const context = vm.createContext({ Response, console: { log() {}, error() {} }, process: { env: {} } });
-  const fake = (exports) => new vm.SyntheticModule(Object.keys(exports), function () {
-    for (const [key, value] of Object.entries(exports)) this.setExport(key, value);
-  }, { context });
-  const modules = {
-    '../../../lib/order.mjs': fake(order),
-    stripe: fake({ default: class { constructor() { this.checkout = { sessions: { create: async (data) => {
-      calls.sessions.push(data);
-      if (stripeError) throw new Error('Simulated Stripe failure');
-      return { id: 'cs_test_example', url: 'https://example.invalid/test-checkout' };
-    } } }; } } }),
-    '@supabase/supabase-js': fake({ createClient: () => ({ from: () => ({ insert: async (data) => {
-      calls.inserts.push(data);
-      return { error: storageError ? { message: 'Simulated storage failure' } : null };
-    } }) }) }),
-    resend: fake({ Resend: class { constructor() { this.emails = { send: async (data) => {
-      calls.emails.push(data); return { data: { id: 'email_test' }, error: null };
-    } }; } } }),
-  };
-  const source = readFileSync(new URL('../app/api/create-checkout-session/route.js', import.meta.url), 'utf8');
-  const module = new vm.SourceTextModule(source, { context });
-  await module.link((name) => {
-    assert.ok(modules[name], `Unexpected external dependency: ${name}`);
-    return modules[name];
-  });
-  await module.evaluate();
-  return { calls, post: (body) => module.namespace.POST({ json: async () => body }) };
+test('intake stores unknown-fee states without charging or trusting client prices',()=>{
+ const result=prepareOrder(input({orderItems:[{...item,state:'Kentucky'}]}));
+ assert.equal(result.orderItems[0].state,'Kentucky');assert.equal(result.total,undefined);assert.equal(result.orderItems[0].stateFee,undefined);
+});
+test('intake retains carrier, vehicle, email and travel details',()=>{const r=prepareOrder(input());assert.equal(r.customer.email,customer.email);assert.equal(r.orderItems[0].details['Trip End Date'],'2026-11-02');assert.equal(r.customer.businessAddress,'Example');});
+test('intake rejects impossible dates, invalid zones and unsupported states',()=>{
+ assert.throws(()=>prepareOrder(input({orderItems:[{...item,details:{...details,'Beginning Travel Date':'2026-02-31'}}]})),/dates/);
+ assert.throws(()=>prepareOrder(input({orderItems:[{...item,details:{...details,'Time Zone':'Nowhere'}}]})),/zone/);
+ assert.throws(()=>prepareOrder(input({orderItems:[{...item,state:'Not a state'}]})),/supported/);
+});
+test('required contact and weight validation',()=>{assert.throws(()=>prepareOrder(input({email:'bad'})),/email/);assert.throws(()=>prepareOrder(input({registeredWeight:'abc'})),/weight/);});
+test('reviewed standard fee is per permit; client totals ignored',()=>{const r=reviewedQuote(order(),quote({total:1}));assert.equal(r.totalCents,13000);assert.equal(r.serviceCount,2);});
+test('rush replaces standard per permit',()=>{assert.equal(reviewedQuote(order({processing_type:'Rush'}),quote()).totalCents,16000);});
+test('blank fees do not silently become zero',()=>{assert.throws(()=>reviewedQuote(order(),quote({lines:[line({otherCents:''}),line()]})),/explicitly/);});
+test('no quote without explicit review, every line and fee sources',()=>{
+ assert.throws(()=>reviewedQuote(order(),quote({reviewConfirmed:false})),/Confirm/);
+ assert.throws(()=>reviewedQuote(order(),quote({lines:[line()]})),/every/);
+ assert.throws(()=>reviewedQuote(order(),quote({lines:[line({source:''}),line()]})),/source/);
+});
+test('single state combination and separate permits have explicit service counts',()=>{
+ const combined=order({order_items:[{...item,permitType:'Trip + Fuel Permit'}]});
+ assert.throws(()=>reviewedQuote(combined,{reviewConfirmed:true,lines:[line()]}),/combination/);
+ assert.equal(reviewedQuote(combined,{reviewConfirmed:true,lines:[line({serviceCount:1,combinationTreatment:'State-issued combination'})]}).totalCents,6500);
+ assert.equal(reviewedQuote(combined,{reviewConfirmed:true,lines:[line({serviceCount:2,combinationTreatment:'Two separate permits'})]}).totalCents,10000);
+});
+test('paid orders cannot be quoted again',()=>assert.throws(()=>reviewedQuote(order({payment_status:'paid'}),quote()),/already paid/));
+test('payment must match order, currency, paid status, approved amount and session',()=>{
+ const o=order({quote:{totalCents:13000},stripe_session_id:'cs_test'}),s={payment_status:'paid',currency:'usd',amount_total:13000,metadata:{order_id:'order-1'},id:'cs_test'};
+ assert.ok(verifyPayment(o,s));for(const change of [{payment_status:'unpaid'},{currency:'eur'},{amount_total:1},{metadata:{order_id:'other'}},{id:'other'}])assert.equal(verifyPayment(o,{...s,...change}),false);
+});
+async function moduleWithMocks(path,mocks,env={}){
+ const context=vm.createContext({Response,Request,Buffer,URL,console:{error(){}},process:{env}});
+ const mod=new vm.SourceTextModule(readFileSync(new URL(path,import.meta.url),'utf8'),{context});
+ await mod.link(name=>{assert.ok(mocks[name],`Unexpected external dependency ${name}`);const exports=mocks[name];return new vm.SyntheticModule(Object.keys(exports),function(){for(const [k,v]of Object.entries(exports))this.setExport(k,v);},{context});});await mod.evaluate();return mod.namespace;
 }
+test('admin auth fails closed without a token and does not create a DB client',async()=>{
+ let calls=0;const server=await moduleWithMocks('../lib/server.mjs',{'@supabase/supabase-js':{createClient(){calls++;throw Error('Unexpected DB access');}},stripe:{default:class{}}});
+ await assert.rejects(()=>server.requireAdmin(new Request('https://example.invalid')),e=>e.status===401);assert.equal(calls,0);
+});
+test('admin auth verifies with Supabase and restricts to approved user IDs',async()=>{
+ const server=await moduleWithMocks('../lib/server.mjs',{'@supabase/supabase-js':{createClient:()=>({auth:{getUser:async token=>({data:{user:{id:token}}})}})},stripe:{default:class{}}},{NEXT_PUBLIC_SUPABASE_URL:'https://example.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-not-real',ADMIN_USER_IDS:'approved'});
+ await assert.rejects(()=>server.requireAdmin(new Request('https://example.invalid',{headers:{authorization:'Bearer other'}})),e=>e.status===403);
+ assert.equal((await server.requireAdmin(new Request('https://example.invalid',{headers:{authorization:'Bearer approved'}}))).user.id,'approved');
+});
+test('forged webhook signatures cannot reach the database',async()=>{
+ let calls=0;const route=await moduleWithMocks('../app/api/stripe-webhook/route.js',{'../../../lib/server.mjs':{database(){calls++;throw Error();},stripeClient:()=>({webhooks:{constructEvent(){throw Error('bad signature');}}}),required:()=> 'test'},'../../../lib/quote.mjs':{verifyPayment},'../../../lib/mail.mjs':{paidMail:async()=>{},tryDrainMail:async()=>{}}});
+ assert.equal((await route.POST(new Request('https://example.invalid',{method:'POST',body:'forged'}))).status,400);assert.equal(calls,0);
+});
 
-test('standard service is per permit; client totals and fees cannot set Stripe amount', async () => {
-  const { post, calls } = await handler();
-  const response = await post(payload());
-  assert.equal(response.status, 200);
-  assert.equal((await response.json()).url, 'https://example.invalid/test-checkout');
-  assert.deepEqual(Array.from(calls.sessions[0].line_items, (line) => line.price_data.unit_amount), [5500, 5500]);
-  assert.equal(calls.inserts[0][0].total, 110);
-  assert.equal(calls.inserts[0][0].order_items[0].customer.email, customer.email);
-  assert.equal(calls.inserts[0][0].order_items[0].details['Beginning Travel Date'], '2026-11-01');
-  assert.match(calls.emails[0].subject, /Payment Not Confirmed/);
+async function webhookHarness(session, existingOrder) {
+ let state={...existingOrder}, updates=0, mailCalls=0;
+ const db={from:()=>{let mode='read',patch={};const q={select(){return q;},eq(){return q;},update(value){mode='update';patch=value;return q;},async single(){if(mode==='update'){updates++;state={...state,...patch};}return {data:{...state},error:null};}};return q;}};
+ const route=await moduleWithMocks('../app/api/stripe-webhook/route.js',{'../../../lib/server.mjs':{database:()=>db,stripeClient:()=>({webhooks:{constructEvent:()=>({type:'checkout.session.completed',livemode:false,data:{object:session}})}}),required:()=> 'test'},'../../../lib/quote.mjs':{verifyPayment},'../../../lib/mail.mjs':{paidMail:async()=>{mailCalls++;},tryDrainMail:async()=>{}}});
+ return {post:()=>route.POST(new Request('https://example.invalid',{method:'POST',body:'signed-test'})),get:()=>({state,updates,mailCalls})};
+}
+test('replayed paid webhook does not update payment twice',async()=>{
+ const session={id:'cs_test',metadata:{order_id:'order-1',quote_revision:'rev1'},payment_status:'paid',currency:'usd',amount_total:13000,payment_intent:'pi_test'};
+ const h=await webhookHarness(session,order({quote:{totalCents:13000},quote_revision:'rev1',stripe_session_id:'cs_test',payment_status:'pending'}));
+ assert.equal((await h.post()).status,200);assert.equal((await h.post()).status,200);assert.equal(h.get().updates,1);assert.equal(h.get().state.payment_status,'paid');
 });
-test('rush replaces standard and is charged per permit', () => {
-  assert.equal(order.prepareOrder(payload({ rush: true })).total, 140);
-});
-test('unknown state fees cannot create an order, email or checkout', async () => {
-  const { post, calls } = await handler();
-  assert.equal((await post(payload({ orderItems: [{ ...item, state: 'Georgia' }] }))).status, 400);
-  assert.equal(calls.inserts.length + calls.emails.length + calls.sessions.length, 0);
-});
-test('combination pricing requires review', () => {
-  assert.throws(() => order.prepareOrder(payload({ orderItems: [{ ...item, permitType: 'Trip + Fuel Permit' }] })), /reviewed quote/);
-});
-test('missing travel details and invalid contact details are rejected', () => {
-  assert.throws(() => order.prepareOrder(payload({ orderItems: [{ ...item, details: {} }] })), /Travel Date/);
-  assert.throws(() => order.prepareOrder(payload({ email: 'invalid' })), /email/);
-});
-test('failed storage prevents email and Stripe checkout', async () => {
-  const { post, calls } = await handler({ storageError: true });
-  assert.equal((await post(payload())).status, 503);
-  assert.equal(calls.emails.length + calls.sessions.length, 0);
-});
-test('Stripe failure returns an error and never claims payment', async () => {
-  const { post, calls } = await handler({ stripeError: true });
-  assert.equal((await post(payload())).status, 500);
-  assert.equal(calls.inserts[0][0].payment_status, 'pending');
-});
-test('customer content is escaped in email HTML', async () => {
-  const { post, calls } = await handler();
-  await post(payload({ companyName: '<img src=x onerror=alert(1)>' }));
-  assert.ok(!calls.emails[0].html.includes('<img'));
-  assert.ok(calls.emails[0].html.includes('&lt;img'));
+test('signed but wrong-amount webhook never marks order paid',async()=>{
+ const session={id:'cs_test',metadata:{order_id:'order-1',quote_revision:'rev1'},payment_status:'paid',currency:'usd',amount_total:1};
+ const h=await webhookHarness(session,order({quote:{totalCents:13000},quote_revision:'rev1',stripe_session_id:'cs_test',payment_status:'pending'}));
+ assert.equal((await h.post()).status,500);assert.equal(h.get().updates,0);assert.equal(h.get().mailCalls,0);
 });
