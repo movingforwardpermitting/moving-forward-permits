@@ -90,3 +90,16 @@ test('email test recipient is the verified admin; provider errors are not succes
  const route=await moduleWithMocks('../app/api/admin-email-test/route.js',{'node:crypto':{randomUUID:()=> 'test-id'},resend:{Resend:class{constructor(){this.emails={send:async msg=>{recipient=msg.to;return {error:{message:'rejected'},data:null};}};}}},'../../../lib/server.mjs':{requireAdmin:async()=>({db:{rpc:async()=>({data:true})},user:{id:'admin',email:'admin@example.invalid',email_confirmed_at:'2026-10-27'}}),required:()=> 'test',failure:e=>Response.json({error:e.message},{status:e.status||503})}});
  const response=await route.POST(new Request('https://example.invalid',{method:'POST',body:JSON.stringify({to:'other@example.invalid'})}));assert.equal(response.status,502);assert.equal(recipient,'admin@example.invalid');
 });
+
+async function sandboxHarness({ valid=true, live=false, mode='test', amount=13000 }={}) {
+ let updates=0, mails=0;
+ const session={id:'cs_test',metadata:{order_id:'order-1',quote_revision:'rev1',stripe_mode:'test'},payment_status:'paid',currency:'usd',amount_total:amount};
+ let state=order({quote:{totalCents:13000,stripeMode:mode},quote_revision:'rev1',stripe_session_id:'cs_test',payment_status:'pending'});
+ const db={from:()=>{let patch;const q={select(){return q;},eq(){return q;},update(value){patch=value;return q;},async single(){if(patch){updates++;state={...state,...patch};}return {data:{...state}};}};return q;}};
+ const route=await moduleWithMocks('../app/api/stripe-sandbox-webhook/route.js',{'stripe':{default:{webhooks:{constructEvent(){if(!valid)throw Error('bad signature');return {type:'checkout.session.completed',livemode:live,data:{object:session}};}}}},'../../../lib/server.mjs':{database:()=>db,required:()=> 'test-secret'},'../../../lib/quote.mjs':{verifyPayment},'../../../lib/mail.mjs':{paidMail:async()=>{mails++;},tryDrainMail:async()=>{}}});
+ return {post:()=>route.POST(new Request('https://example.invalid',{method:'POST',body:'test-only'})),get:()=>({updates,mails,state})};
+}
+test('public sandbox callback rejects invalid signatures and live events',async()=>{for(const config of [{valid:false},{live:true}]){const h=await sandboxHarness(config);assert.equal((await h.post()).status,400);assert.equal(h.get().updates,0);}});
+test('sandbox callback cannot update a live or untagged quote',async()=>{const h=await sandboxHarness({mode:'live'});assert.equal((await h.post()).status,400);assert.equal(h.get().updates,0);assert.equal(h.get().mails,0);});
+test('sandbox callback confirms matching payment and safely handles retries',async()=>{const h=await sandboxHarness();assert.equal((await h.post()).status,200);assert.equal((await h.post()).status,200);assert.equal(h.get().updates,1);assert.equal(h.get().state.payment_status,'paid');});
+test('sandbox callback rejects wrong payment amounts',async()=>{const h=await sandboxHarness({amount:1});assert.equal((await h.post()).status,500);assert.equal(h.get().updates,0);assert.equal(h.get().mails,0);});

@@ -17,14 +17,14 @@ export async function POST(req) {
       if (!['pending_review', 'missing_information', 'quote_preparing'].includes(order.order_status)) throw badRequest('Order is not ready for a payment request.');
       if (order.order_status !== 'quote_preparing') {
         let quote;
-        try { quote = reviewedQuote(order, body); } catch (error) { throw badRequest(error.message); }
+        try { quote = { ...reviewedQuote(order, body), stripeMode: required('STRIPE_MODE'), reviewUrl: siteUrl() }; } catch (error) { throw badRequest(error.message); }
         const saved = await db.from('permit_orders').update({ quote, total: quote.totalCents / 100, order_status: 'quote_preparing', quote_revision: randomUUID(), approved_by: user.id, approved_at: new Date().toISOString() }).eq('order_number', order.order_number).eq('order_status', order.order_status).select('*').single();
         if (saved.error) throw badRequest('Order changed. Refresh and try again.');
         order = saved.data;
       }
       const session = await stripeClient().checkout.sessions.create({
         mode: 'payment', payment_method_types: ['card'], customer_email: order.contact_email,
-        client_reference_id: order.order_number, metadata: { order_id: order.order_number, quote_revision: order.quote_revision },
+        client_reference_id: order.order_number, metadata: { order_id: order.order_number, quote_revision: order.quote_revision, stripe_mode: order.quote.stripeMode },
         line_items: order.quote.lines.map((line) => ({ price_data: { currency: 'usd', unit_amount: line.stateCents + line.otherCents + line.serviceCents, product_data: { name: `${line.state} ${line.permitType}`, description: `State $${(line.stateCents / 100).toFixed(2)} + provider $${(line.otherCents / 100).toFixed(2)} + service $${(line.serviceCents / 100).toFixed(2)}` } }, quantity: 1 })),
         success_url: `${siteUrl()}/order-success`, cancel_url: `${siteUrl()}/?payment=cancelled`,
       }, { idempotencyKey: `quote-${order.order_number}-${order.quote_revision}` });
