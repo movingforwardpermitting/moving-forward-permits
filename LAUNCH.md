@@ -51,6 +51,14 @@ No migration is claimed applied until confirmed by the database. No account is c
 
 - Supabase project `xfcfwevjxkefuqiuscjt` was inactive, resumed successfully, and is now ACTIVE_HEALTHY. Its existing table schema was inspected; no customer rows were read. The table summary reported zero rows.
 - Business admin user matching `movingforwardpermitting@gmail.com` does not yet exist in Supabase Auth. Account setup remains required.
-- Applied `restrict_legacy_order_access` to revoke public/ordinary-user reads and updates while retaining the old intake INSERT permission until deployment. Verification confirmed those reads/updates are false and server access remains true. The full workflow migration has NOT been applied.
+- Applied `restrict_legacy_order_access` to revoke public/ordinary-user reads and updates while retaining the old intake INSERT permission until deployment. Verification confirmed those reads/updates are false and server access remains true. The workflow migration was subsequently applied after Vercel access was approved; see the latest status below.
 - Vercel account is connected but the existing project's team grant is pending. Project/env inspection returned 403 and provided a time-limited team authorization link. No decrypted environment values or Stripe secrets were requested.
 - Sixteen isolated tests and the production build passed. Full database, email, payment and delivery integration tests are still pending. No live charge, state application, or customer email was created.
+
+## Latest configuration progress
+
+Vercel team access is now confirmed. Read the configured variable names without decrypting values. Set SITE_URL for preview and production, PAYMENTS_ENABLED=false, test/live mode labels for the respective environments, and generated private cron/rate-limit secrets. Existing Stripe credentials were not read or changed.
+
+Applied the additive order_workflow migration to the existing database while preserving old-form INSERT access for the transition. Delivery queue/state and rate-limit assertions passed inside a transaction that was fully rolled back. Verified public reads/updates remain blocked, workflow RPC is not public, and the PDF bucket is private. Security advisors report only informational RLS-with-no-policy findings for the deliberately server-only mail queue and rate-limit tables.
+
+Outstanding private setup: server Supabase key entered directly in Vercel, Christie’s Supabase Auth admin account and allowed UUID, verified Resend sender, and Stripe test webhook configuration performed by Christie. Do not enable payments or merge/publish the workflow until actual end-to-end tests pass. Once the new workflow is deployed, revoke the remaining legacy anon INSERT grant.

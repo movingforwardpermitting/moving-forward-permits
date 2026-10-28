@@ -33,7 +33,8 @@ create unique index if not exists permit_order_number_unique on public.permit_or
 create unique index if not exists permit_request_key_unique on public.permit_orders(request_key);
 create unique index if not exists permit_stripe_session_unique on public.permit_orders(stripe_session_id);
 alter table public.permit_orders enable row level security;
-revoke all on public.permit_orders from anon, authenticated;
+-- Preserve old live intake until the new server-backed workflow is deployed.
+revoke select, update, delete, truncate, references, trigger on public.permit_orders from anon, authenticated;
 grant all on public.permit_orders to service_role;
 
 create table if not exists public.permit_mail_queue (
