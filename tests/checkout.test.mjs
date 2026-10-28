@@ -103,3 +103,8 @@ test('public sandbox callback rejects invalid signatures and live events',async(
 test('sandbox callback cannot update a live or untagged quote',async()=>{const h=await sandboxHarness({mode:'live'});assert.equal((await h.post()).status,400);assert.equal(h.get().updates,0);assert.equal(h.get().mails,0);});
 test('sandbox callback confirms matching payment and safely handles retries',async()=>{const h=await sandboxHarness();assert.equal((await h.post()).status,200);assert.equal((await h.post()).status,200);assert.equal(h.get().updates,1);assert.equal(h.get().state.payment_status,'paid');});
 test('sandbox callback rejects wrong payment amounts',async()=>{const h=await sandboxHarness({amount:1});assert.equal((await h.post()).status,500);assert.equal(h.get().updates,0);assert.equal(h.get().mails,0);});
+
+test('sandbox checkout fixture refuses live mode before creating records or Stripe sessions',async()=>{
+ let calls=0;const route=await moduleWithMocks('../app/api/admin-sandbox-checkout/route.js',{'node:crypto':{randomUUID:()=> 'test-id'},'../../../lib/server.mjs':{requireAdmin:async()=>({db:{from:()=>{calls++;}},user:{email:'admin@example.invalid',email_confirmed_at:'2026-10-28'}}),required:()=> 'live',stripeClient:()=>{calls++;},siteUrl:()=> 'https://example.invalid',failure:e=>Response.json({error:e.message},{status:503})}},{PAYMENTS_ENABLED:'true'});
+ assert.equal((await route.POST(new Request('https://example.invalid',{method:'POST'}))).status,409);assert.equal(calls,0);
+});
