@@ -8,7 +8,14 @@ const auth = () => client ||= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,
 const emptyCustomer = Object.fromEntries(sharedFields.map(([key])=>[key,'']));
 const newItem = () => ({id:crypto.randomUUID(),state:'Arkansas',permitType:'Trip Permit',details:Object.fromEntries(permitFields.map(f=>[f,f==='Time Zone'?'America/Chicago':'']))});
 const format = d => d ? new Date(d).toLocaleString() : '';
-const money = cents => '
+const money = cents => String.fromCharCode(36) + (cents / 100).toFixed(2);
+function phoneEstimate(items, rush) {
+ const serviceCents=items.reduce((sum,item)=>sum+(rush?5000:3500),0);
+ const knownStateCents=items.reduce((sum,item)=>sum+(feeReference(item.state,item.permitType)?.feeCents ?? 0),0);
+ const pending=items.filter(item=>!Number.isSafeInteger(feeReference(item.state,item.permitType)?.feeCents)).map(item=>item.state+' '+item.permitType);
+ return {serviceCents,knownStateCents,pending,subtotal:serviceCents+knownStateCents};
+}
+function normalize(order) {
   return {
     customer:{...emptyCustomer,...Object.fromEntries(Object.entries(order.customer_details||{}).filter(([key])=>key in emptyCustomer))},
     items:(order.order_items||[]).map(item=>({...item,id:crypto.randomUUID(),details:{...Object.fromEntries(permitFields.map(f=>[f,''])),...item.details}})),
