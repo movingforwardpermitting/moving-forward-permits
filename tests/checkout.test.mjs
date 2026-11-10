@@ -108,3 +108,9 @@ test('sandbox checkout fixture refuses live mode before creating records or Stri
  let calls=0;const route=await moduleWithMocks('../app/api/admin-sandbox-checkout/route.js',{'node:crypto':{randomUUID:()=> 'test-id'},'../../../lib/server.mjs':{requireAdmin:async()=>({db:{from:()=>{calls++;}},user:{email:'admin@example.invalid',email_confirmed_at:'2026-10-28'}}),required:()=> 'live',stripeClient:()=>{calls++;},siteUrl:()=> 'https://example.invalid',failure:e=>Response.json({error:e.message},{status:503})}},{PAYMENTS_ENABLED:'true'});
  assert.equal((await route.POST(new Request('https://example.invalid',{method:'POST'}))).status,409);assert.equal(calls,0);
 });
+
+test('a public inquiry cannot be approved for payment until permit availability is explicitly verified',()=>{
+  const publicOrder=order({customer_details:{intakeChannel:'web',availabilityStatus:'pending_confirmation'}});
+  assert.throws(()=>reviewedQuote(publicOrder,quote()),/Confirm this permit can actually be obtained/);
+  assert.equal(reviewedQuote(publicOrder,quote({availabilityConfirmed:true})).totalCents,13000);
+});
