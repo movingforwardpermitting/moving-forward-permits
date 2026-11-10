@@ -9,7 +9,7 @@ test('three-state draft is not a final quote when all state/provider fees are mi
   assert.equal(result.knownStateCents,5900);
   assert.equal(result.totalCents,null);
   assert.equal(result.ready,false);
-  assert.ok(result.pending.some(s=>s.includes('Arizona')&&s.includes('state fee')));
+  assert.ok(result.pending.some(s=>s.includes('Arizona')&&s.includes('government fee')));
 });
 test('fixed fees autofill from the state/type reference catalog but require review',()=>{
   const lines=initialQuoteLines(items);
