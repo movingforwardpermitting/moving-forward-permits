@@ -107,8 +107,11 @@ export default function PhoneOrder() {
   const updateItem=(idx,patch)=>setForm(f=>({...f,items:f.items.map((item,i)=>{
     if(i!==idx)return item;
     const next={...item,...patch};
-    return {...next,details:applySuggestedExpiration(next.state,next.permitType,
-      item.details, next.details)};
+    const oldDate=suggestedExpirationDate(item.state,item.permitType,item.details)?.date;
+    const newDate=suggestedExpirationDate(next.state,next.permitType,item.details)?.date;
+    const editable=!item.details['Trip End Date']||item.details['Trip End Date']===oldDate;
+    return {...next,details:editable?
+      {...next.details,'Trip End Date':newDate||''}:next.details};
   })}));
   const updateDetail=(idx,key,value)=>setForm(f=>({...f,items:f.items.map((item,i)=>{
     if(i!==idx)return item;
