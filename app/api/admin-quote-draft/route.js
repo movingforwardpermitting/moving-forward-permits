@@ -10,7 +10,7 @@ export async function POST(req) {
     const found=await db.from('permit_orders').select('*').eq('order_number',body.orderNumber).single();
     if(found.error||!found.data)throw badRequest('Order not found.');
     const order=found.data;
-    if(!['pending_review','missing_information'].includes(order.order_status) || order.payment_status==='paid')
+    if(!['pending_review','missing_information'].includes(order.order_status) || !['not_requested','expired'].includes(order.payment_status))
       throw badRequest('This order cannot be edited after a payment request or payment.');
     if(body.lines.length!==(order.order_items||[]).length)throw badRequest('Include all permit lines.');
     // Explicitly bound values, disallow very large or arbitrary objects.
@@ -29,7 +29,7 @@ export async function POST(req) {
       lastEditedBy:user.id,lastEditedAt:new Date().toISOString()};
     const saved=await db.from('permit_orders').update({quote})
       .eq('order_number',order.order_number).in('order_status',['pending_review','missing_information'])
-      .neq('payment_status','paid').select('order_number,quote,order_status').maybeSingle();
+      .in('payment_status',['not_requested','expired']).select('order_number,quote,order_status').maybeSingle();
     if(saved.error || !saved.data) throw badRequest('Order changed. Reload before saving your quote.');
     return Response.json({saved:true,at:quote.lastEditedAt,ready:preview.ready,pending:preview.pending},
       {headers:{'Cache-Control':'no-store'}});
