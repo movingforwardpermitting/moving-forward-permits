@@ -12,10 +12,10 @@ test('selecting a new start date recalculates only previously auto-filled end da
   assert.equal(applySuggestedExpiration('Maine','Trip Permit',prior,next)['Trip End Date'],'2026-11-15');
   assert.equal(applySuggestedExpiration('Maine','Trip Permit',{...prior,'Trip End Date':'2026-11-11'}, {...next,'Trip End Date':'2026-11-11'})['Trip End Date'],'2026-11-11');
 });
-test('unknown and duration-dependent permits do not generate unsafe end dates',()=>{
+test('ambiguous duration stays blank; clearly stated 96-hour Arizona fuel suggests a date',()=>{
   assert.equal(suggestedExpirationDate('Alabama','Trip Permit',{'Beginning Travel Date':'2026-11-10'}),null);
   assert.equal(suggestedExpirationDate('Kansas','Fuel Permit',{'Beginning Travel Date':'2026-11-10'}),null);
-  assert.equal(suggestedExpirationDate('Arizona','Fuel Permit',{'Beginning Travel Date':'2026-11-10'}),null);
+  assert.equal(suggestedExpirationDate('Arizona','Fuel Permit',{'Beginning Travel Date':'2026-11-10'}).date,'2026-11-14');
 });
 test('Kansas fuel 24- and 72-hour selections change suggested end dates',()=>{
   assert.equal(suggestedExpirationDate('Kansas','Fuel Permit',{'Beginning Travel Date':'2026-11-10','Kansas Fuel Duration':'24 hours'}).date,'2026-11-11');
