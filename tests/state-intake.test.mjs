@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareOrder,sharedFields} from '../lib/order.mjs';
+import {prepareOrder,sharedFields,inquiryStates} from '../lib/order.mjs';
 import {permitIntakeRule,extraPermitFields} from '../lib/permit-requirements.mjs';
 const customer=Object.fromEntries(sharedFields.map(([key])=>[key,'Example']));
 Object.assign(customer,{usdot:'1234567',vin:'1M8GDM9AXKP042788',email:'example@example.com',registeredWeight:'80000',axles:'5',irpStatus:'no',iftaStatus:'no',phoneNumber:'2055550100'});
@@ -40,4 +40,28 @@ test('Kansas fuel has 24/72-hour duration selection',()=>{
 test('unsupported fuel issuance is explicitly blocked for configured Arkansas and Mississippi process',()=>{
  assert.throws(()=>prepareOrder(make('Arkansas','Fuel Permit',start)),/not currently offered/);
  assert.throws(()=>prepareOrder(make('Mississippi','Fuel Permit',start)),/not currently offered/);
+});
+
+test('nationwide inquiry includes all 50 states including locations not in phone permit roster',()=>{
+  assert.equal(inquiryStates.length,50);
+  for(const state of ['California','North Dakota','Hawaii','New York','Alabama']){
+    assert.ok(inquiryStates.includes(state));
+    const result=prepareOrder(make(state,'Trip Permit',start),{inquiry:true});
+    assert.equal(result.orderItems[0].state,state);
+  }
+});
+test('any state can request fuel help even if state issuance method is unconfirmed',()=>{
+  assert.equal(prepareOrder(make('Arkansas','Fuel Permit',start),{inquiry:true}).orderItems[0].permitType,'Fuel Permit');
+  assert.equal(prepareOrder(make('Mississippi','Trip + Fuel Permit',start),{inquiry:true}).orderItems[0].permitType,'Trip + Fuel Permit');
+  assert.throws(()=>prepareOrder(make('Arkansas','Fuel Permit',start)),/not currently offered/);
+});
+test('public inquiry requires only beginning date at inquiry stage, not permit portal details',()=>{
+  assert.equal(prepareOrder(make('Maine','Trip Permit',start),{inquiry:true}).orderItems[0].details['Trip End Date'],'');
+  assert.equal(prepareOrder(make('Arizona','Trip Permit',start),{inquiry:true}).orderItems[0].details['Arizona Miles'],'');
+  assert.equal(prepareOrder(make('Kansas','Fuel Permit',start),{inquiry:true}).orderItems[0].details['Kansas Fuel Duration'],'');
+});
+test('nationwide inquiry rejects invalid state, invalid optional effective time, and missing travel date',()=>{
+  assert.throws(()=>prepareOrder(make('Atlantis','Trip Permit',start),{inquiry:true}),/supported state/);
+  assert.throws(()=>prepareOrder(make('Alabama','Trip Permit',{'Effective Time':'10:00'}),{inquiry:true}),/travel dates/);
+  assert.throws(()=>prepareOrder(make('Alabama','Trip Permit',{...start,'Effective Time':'25:30'}),{inquiry:true}),/effective time/);
 });
