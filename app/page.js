@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { sharedFields, permitFields, supportedStates, stateFees, prepareOrder } from '../lib/order.mjs';
-import { permitIntakeRule, extraPermitFields } from '../lib/permit-requirements.mjs';
+import { permitIntakeRule, extraPermitFields, launchStates, launchTypesFor } from '../lib/permit-requirements.mjs';
 import { suggestedExpirationDate, applySuggestedExpiration } from '../lib/permit-duration.mjs';
 
 const initialCustomer = Object.fromEntries(sharedFields.map(([key]) => [key, '']));
@@ -9,7 +9,7 @@ const zones = ['America/Chicago','America/New_York','America/Denver','America/Ph
 export default function Home() {
   const [customer,setCustomer] = useState(initialCustomer);
   const [items,setItems] = useState([]);
-  const [state,setState] = useState('Alabama');
+  const [state,setState] = useState('Arizona');
   const [permitType,setPermitType] = useState('Trip Permit');
   const [rush,setRush] = useState(false);
   const [busy,setBusy] = useState(false);
@@ -55,12 +55,12 @@ export default function Home() {
       <div className="grid" style={{marginTop:30}}>{[['1. Request','Share your carrier, truck and travel details.'],['2. Review & pay','Receive a reviewed quote and secure Stripe payment link.'],['3. Receive your permits','We obtain your permits and email them after review.']].map(([title,text])=><div className="card" key={title}><h3>{title}</h3><p>{text}</p></div>)}</div>
       <p className="note">Trip and fuel permits only. Oversize/overweight permitting is not offered. Rush requests are subject to availability and state processing requirements.</p>
     </section>
-    <section className="wrap" id="request" style={{paddingTop:0}}><h2>Build your permit request</h2><p>One truck per request. Required fields are marked *. Additional documents may be needed after state review.</p>
+    <section className="wrap" id="request" style={{paddingTop:0}}><h2>Build your permit request</h2><p>Initial service area: Arizona, Arkansas, Iowa, Kansas, and Maine, with permit types currently configured for fulfillment. One truck per request. Required fields are marked *. Additional documents may be needed after state review.</p>
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
       {received ? <div className="card"><h3>We have your request.</h3><p>Save the reference above. Questions? Email <a href="mailto:movingforwardpermitting@gmail.com">movingforwardpermitting@gmail.com</a>.</p><button onClick={()=>{setReceived(false);setItems([]);setMessage('');request.current={};}}>Start another request</button></div> : <form onSubmit={submit}>
         <div className="card"><h3>Company, contact & truck</h3><div className="grid">{sharedFields.map(([key,label])=>field(key,label))}</div><p className="note">Do not enter Social Security numbers, card details or passwords. We’ll arrange a secure way to collect any additional required documents.</p></div>
         <div style={{display:'none'}} aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e=>setWebsite(e.target.value)} /></label></div>
-        <div className="card"><h3>Choose your permits</h3><div className="grid"><label>State<select value={state} onChange={e=>setState(e.target.value)}>{supportedStates.map(s=><option key={s}>{s}</option>)}</select></label><label>Permit type<select value={permitType} onChange={e=>setPermitType(e.target.value)}><option>Trip Permit</option><option>Fuel Permit</option><option>Trip + Fuel Permit</option></select></label></div><button type="button" style={{marginTop:20}} onClick={()=>{if(items.length<20)setItems([...items,{id:crypto.randomUUID(),state,permitType,details:{}}]);}}>Add permit request</button>
+        <div className="card"><h3>Choose your permits</h3><div className="grid"><label>State<select value={state} onChange={e=>{setState(e.target.value);setPermitType(launchTypesFor(e.target.value)[0]);}}>{launchStates.map(s=><option key={s}>{s}</option>)}</select></label><label>Permit type<select value={permitType} onChange={e=>setPermitType(e.target.value)}>{launchTypesFor(state).map(type=><option key={type}>{type}</option>)}</select></label></div><button type="button" style={{marginTop:20}} onClick={()=>{if(items.length<20)setItems([...items,{id:crypto.randomUUID(),state,permitType,details:{}}]);}}>Add permit request</button>
           {!items.length && <p>Add a permit to enter your travel details.</p>}
           {items.map((item,index)=>{
             const rule=permitIntakeRule(item.state,item.permitType);
