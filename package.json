@@ -1,7 +1,7 @@
 {
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm test && next build",
     "start": "next start",
     "test": "node --experimental-vm-modules --test tests/*.test.mjs"
   },
