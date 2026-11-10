@@ -74,7 +74,7 @@ export default function PhoneOrder() {
         return false;
       }
       setStatus(finalize?'Submitting for quote review…':'Saving draft…');
-      const {order:updated}=await api({action:finalize?'finalize':'save',orderNumber:latest.order_number,
+      const {order:updated,notificationQueued}=await api({action:finalize?'finalize':'save',orderNumber:latest.order_number,
         version:latest.updated_at,customer:draft.customer,items:draft.items,rush:draft.rush,
         paymentPreference:draft.paymentPreference});
       orderRef.current=updated;
@@ -83,7 +83,9 @@ export default function PhoneOrder() {
       if (finalize) {
         setReady(false);
         setValidationError('');
-        setStatus('Submitted for quote review. No payment has been charged or requested.');
+        setStatus(notificationQueued===false
+          ? 'Order submitted for quote review, but the admin email could not be queued. Open the Admin Center to review this order. No payment has been charged or requested.'
+          : 'Submitted for quote review. Admin email alert queued. No payment has been charged or requested.');
       } else {
         setStatus('Saved at '+format(updated.updated_at));
       }

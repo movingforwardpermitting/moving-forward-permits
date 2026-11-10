@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { requireAdmin, jsonBody, badRequest, failure } from '../../../lib/server.mjs';
 import { sharedFields, permitFields, supportedStates, prepareOrder } from '../../../lib/order.mjs';
 import { additionalPermitFieldKeys } from '../../../lib/permit-requirements.mjs';
+import { phoneReviewMail, tryDrainMail } from '../../../lib/mail.mjs';
 
 const types = ['Trip Permit', 'Fuel Permit', 'Trip + Fuel Permit'];
 const short = value => typeof value === 'string' ? value.trim().slice(0, 2000) : '';
@@ -87,6 +88,19 @@ export async function POST(req) {
       .eq('order_number',body.orderNumber).eq('order_status','draft').eq('updated_at',body.version)
       .select('*').maybeSingle();
     if (result.error || !result.data) throw Object.assign(new Error('Save conflict. Reload the phone order and review the information.'),{status:409});
-    return Response.json({order:result.data},{headers:{'Cache-Control':'no-store'}});
+    let notificationQueued = null;
+    if (body.action === 'finalize') {
+      try {
+        await phoneReviewMail(db, result.data);
+        notificationQueued = true;
+        // Provider delivery may retry later through the existing mail queue.
+        await tryDrainMail(db);
+      } catch {
+        notificationQueued = false;
+        console.error('Phone order submitted but admin notification could not be queued');
+      }
+    }
+    return Response.json({order:result.data, ...(body.action === 'finalize' ? {notificationQueued} : {})},
+      {headers:{'Cache-Control':'no-store'}});
   } catch(error) { return failure(error); }
 }
