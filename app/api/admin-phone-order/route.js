@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { requireAdmin, jsonBody, badRequest, failure } from '../../../lib/server.mjs';
 import { sharedFields, permitFields, supportedStates, prepareOrder } from '../../../lib/order.mjs';
+import { additionalPermitFieldKeys } from '../../../lib/permit-requirements.mjs';
 
 const types = ['Trip Permit', 'Fuel Permit', 'Trip + Fuel Permit'];
 const short = value => typeof value === 'string' ? value.trim().slice(0, 2000) : '';
@@ -26,7 +27,7 @@ function sanitize(body) {
     if (!supportedStates.includes(item?.state) || !types.includes(item?.permitType))
       throw badRequest('Choose a supported state and permit type.');
     return { state:item.state, permitType:item.permitType,
-      details:Object.fromEntries(permitFields.map(name => [name, short(item.details?.[name])])) };
+      details:Object.fromEntries([...permitFields,...additionalPermitFieldKeys].map(name => [name, short(item.details?.[name])])) };
   });
   const paymentPreference = body.paymentPreference === 'phone_card' ? 'phone_card' : 'payment_link';
   const values = [...Object.values(customer), ...items.flatMap(item=>Object.values(item.details))];
