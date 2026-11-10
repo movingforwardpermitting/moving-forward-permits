@@ -10,6 +10,7 @@ export async function POST(req) {
     const result = await db.from('permit_orders').select('*').eq('order_number', body.orderNumber).single();
     if (result.error || !result.data) throw badRequest('Order not found.');
     let order = result.data;
+    if (!['not_requested','expired','pending'].includes(order.payment_status)) throw badRequest('This order is not eligible for a new payment request.');
     if (order.customer_details?.paymentPreference === 'phone_card') throw badRequest('Phone-card collection requires a separate verified Stripe Dashboard payment workflow. This order cannot be sent an automatic payment link until its preference is changed. Never type card details into the admin form.');
     if (!order.contact_email) throw badRequest('This legacy order has no verified delivery contact. Collect fresh intake before requesting payment.');
     if (order.order_status === 'payment_requested') {
