@@ -15,6 +15,9 @@ export async function GET(req) {
     const root=siteUrl();
     check('Site URL',root.startsWith('https://'),new URL(root).hostname);
     check('Stripe mode',mode==='test'||mode==='live',mode);
+    const stripeKey = process.env.STRIPE_SECRET_KEY?.trim() || '';
+    check('Stripe secret key matches mode', Boolean(stripeKey) && stripeKey.includes('_'+mode+'_'),
+      stripeKey ? (stripeKey.includes('_'+mode+'_') ? 'Matches configured '+mode+' mode' : 'Mismatch: configure a '+mode+' secret key') : 'Missing Stripe secret key');
     check('Payment link feature',process.env.PAYMENTS_ENABLED==='true',
       process.env.PAYMENTS_ENABLED==='true'?'Enabled':'Disabled');
     try {
@@ -22,7 +25,14 @@ export async function GET(req) {
       check('Stripe API read-only connection',Boolean(account?.id),'Account connection confirmed ('+mode+' mode)');
       check('Stripe card payment capability',account?.capabilities?.card_payments==='active',
         account?.capabilities?.card_payments||'Not reported');
-    } catch { check('Stripe API read-only connection',false,'Could not verify account; check credentials and mode'); }
+    } catch (error) {
+      const reason = error?.message === 'Stripe mode and key do not match'
+        ? 'Secret key does not match live/test mode'
+        : error?.type === 'StripeAuthenticationError'
+          ? 'Stripe rejected the API credentials'
+          : 'Could not verify account; check credentials and account activation';
+      check('Stripe API read-only connection',false,reason);
+    }
     const {data,error}=await db.storage.getBucket('issued-permits');
     check('Private permit storage',!error&&data?.public===false,
       !error&&data?.public===false?'Private bucket available':'Storage missing or exposed');
