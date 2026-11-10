@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { prepareOrder } from '../../../lib/order.mjs';
+import { launchTypesFor } from '../../../lib/permit-requirements.mjs';
 import { database, jsonBody, badRequest, failure, required, siteUrl } from '../../../lib/server.mjs';
 import { intakeMail, tryDrainMail } from '../../../lib/mail.mjs';
 
@@ -12,6 +13,7 @@ export async function POST(req) {
     if (input.website) throw badRequest('Unable to accept this request.');
     let prepared;
     try { prepared = prepareOrder(input); } catch (error) { throw badRequest(error.message); }
+    for (const item of prepared.orderItems) if (!launchTypesFor(item.state).includes(item.permitType)) throw badRequest('This permit is not yet available for online ordering. Contact us to discuss alternatives.');
     if (!/^[a-f0-9-]{36}$/i.test(input.requestKey || '')) throw badRequest('Please refresh the page and try again.');
     const db = database();
     const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
