@@ -8,7 +8,16 @@ import { intakeMail, tryDrainMail } from '../../../lib/mail.mjs';
 export async function POST(req) {
   try {
     const origin = req.headers.get('origin');
-    if (origin && origin !== siteUrl()) throw Object.assign(new Error('Request origin not allowed.'), { status: 403 });
+    if (origin) {
+      let accepted=false;
+      try {
+        const parsed=new URL(origin);
+        const previewHost=process.env.VERCEL_URL;
+        accepted=parsed.protocol==='https:' &&
+          (parsed.origin===siteUrl() || (previewHost && parsed.host===previewHost));
+      } catch {}
+      if (!accepted) throw Object.assign(new Error('Request origin not allowed.'), { status: 403 });
+    }
     const input = await jsonBody(req);
     if (input.website) throw badRequest('Unable to accept this request.');
     let prepared;
