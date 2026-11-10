@@ -40,7 +40,7 @@ test('single state combination and separate permits have explicit service counts
  assert.equal(reviewedQuote(combined,{reviewConfirmed:true,lines:[line({serviceCount:1,combinationTreatment:'State-issued combination'})]}).totalCents,6500);
  assert.equal(reviewedQuote(combined,{reviewConfirmed:true,lines:[line({serviceCount:2,combinationTreatment:'Two separate permits'})]}).totalCents,10000);
 });
-test('paid orders cannot be quoted again',()=>assert.throws(()=>reviewedQuote(order({payment_status:'paid'}),quote()),/already paid/));
+test('paid or payment-pending orders cannot be quoted again',()=>{for(const status of ['paid','pending'])assert.throws(()=>reviewedQuote(order({payment_status:status}),quote()),/pending or completed payment/);});
 test('payment must match order, currency, paid status, approved amount and session',()=>{
  const o=order({quote:{totalCents:13000},stripe_session_id:'cs_test'}),s={payment_status:'paid',currency:'usd',amount_total:13000,metadata:{order_id:'order-1'},id:'cs_test'};
  assert.ok(verifyPayment(o,s));for(const change of [{payment_status:'unpaid'},{currency:'eur'},{amount_total:1},{metadata:{order_id:'other'}},{id:'other'}])assert.equal(verifyPayment(o,{...s,...change}),false);

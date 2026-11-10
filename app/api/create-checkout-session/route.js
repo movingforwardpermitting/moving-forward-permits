@@ -1,5 +1,6 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { prepareOrder } from '../../../lib/order.mjs';
+import { launchTypesFor } from '../../../lib/permit-requirements.mjs';
 import { database, jsonBody, badRequest, failure, required, siteUrl } from '../../../lib/server.mjs';
 import { intakeMail, tryDrainMail } from '../../../lib/mail.mjs';
 
@@ -7,11 +8,21 @@ import { intakeMail, tryDrainMail } from '../../../lib/mail.mjs';
 export async function POST(req) {
   try {
     const origin = req.headers.get('origin');
-    if (origin && origin !== siteUrl()) throw Object.assign(new Error('Request origin not allowed.'), { status: 403 });
+    if (origin) {
+      let accepted=false;
+      try {
+        const parsed=new URL(origin);
+        const previewHost=process.env.VERCEL_URL;
+        accepted=parsed.protocol==='https:' &&
+          (parsed.origin===siteUrl() || (previewHost && parsed.host===previewHost));
+      } catch {}
+      if (!accepted) throw Object.assign(new Error('Request origin not allowed.'), { status: 403 });
+    }
     const input = await jsonBody(req);
     if (input.website) throw badRequest('Unable to accept this request.');
     let prepared;
     try { prepared = prepareOrder(input); } catch (error) { throw badRequest(error.message); }
+    for (const item of prepared.orderItems) if (!launchTypesFor(item.state).includes(item.permitType)) throw badRequest('This permit is not yet available for online ordering. Contact us to discuss alternatives.');
     if (!/^[a-f0-9-]{36}$/i.test(input.requestKey || '')) throw badRequest('Please refresh the page and try again.');
     const db = database();
     const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
