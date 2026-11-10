@@ -1,6 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { prepareOrder } from '../../../lib/order.mjs';
-import { launchTypesFor } from '../../../lib/permit-requirements.mjs';
 import { database, jsonBody, badRequest, failure, required, siteUrl } from '../../../lib/server.mjs';
 import { intakeMail, tryDrainMail } from '../../../lib/mail.mjs';
 
@@ -21,8 +20,7 @@ export async function POST(req) {
     const input = await jsonBody(req);
     if (input.website) throw badRequest('Unable to accept this request.');
     let prepared;
-    try { prepared = prepareOrder(input); } catch (error) { throw badRequest(error.message); }
-    for (const item of prepared.orderItems) if (!launchTypesFor(item.state).includes(item.permitType)) throw badRequest('This permit is not yet available for online ordering. Contact us to discuss alternatives.');
+    try { prepared = prepareOrder(input,{inquiry:true}); } catch (error) { throw badRequest(error.message); }
     if (!/^[a-f0-9-]{36}$/i.test(input.requestKey || '')) throw badRequest('Please refresh the page and try again.');
     const db = database();
     const ip = req.headers.get('x-vercel-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
@@ -38,7 +36,7 @@ export async function POST(req) {
       company_name: prepared.customer.companyName, usdot: prepared.customer.usdot,
       mc_number: prepared.customer.mcNumber || null, vin: prepared.customer.vin,
       plate_number: prepared.customer.plateNumber, phone_number: prepared.customer.phoneNumber,
-      contact_email: prepared.customer.email, customer_details: prepared.customer,
+      contact_email: prepared.customer.email, customer_details: {...prepared.customer,intakeChannel:'web',availabilityStatus:'pending_confirmation'},
       permit_type: prepared.orderItems[0].permitType, permit_state: prepared.orderItems[0].state,
       processing_type: prepared.rush ? 'Rush' : 'Standard', total: 0,
       order_items: prepared.orderItems, order_status: 'pending_review', payment_status: 'not_requested',
@@ -52,6 +50,6 @@ export async function POST(req) {
     } else if (error) throw new Error('Order storage unavailable');
     await intakeMail(db, order);
     await tryDrainMail(db);
-    return Response.json({ orderNumber: order.order_number, message: 'Request received. We will review the fees and send a secure payment link.' }, { headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({ orderNumber: order.order_number, message: 'Inquiry received. We will confirm availability and fees before sending a payment link.' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) { return failure(error); }
 }
