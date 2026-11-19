@@ -1,0 +1,13 @@
+export const metadata = { title: 'Terms of Service | Moving Forward Permitting Services' };
+export default function Terms() {
+  const sections = [
+    ['Service and legal entity', 'Moving Forward Permitting Services is operated by Moving Forward Permitting Service LLC, an Alabama limited liability company. We provide administrative assistance with temporary trip and fuel permit requests. We are not a government agency, and we do not offer oversize or overweight permitting.'],
+    ['Customer information', 'You agree to provide complete, accurate, current carrier, vehicle, travel, and contact information and to promptly correct any errors. We rely on information you provide when preparing applications.'],
+    ['Review and permit issuance', 'Submitting an inquiry does not purchase or guarantee a permit. We review availability, eligibility, fees, and timing before requesting payment. Government agencies determine permit approval, issuance, validity, and processing times. No issuance or delivery time is guaranteed.'],
+    ['Compliance and travel', 'You are responsible for determining the permits and authorizations required for your operations, checking issued permit details, and ensuring valid permits are in hand before travel.'],
+    ['Fees and refunds', 'We disclose our service fee and applicable government or third-party fees before requesting payment. Refund eligibility depends on the processing status, any nonrefundable government charges, the terms disclosed at payment, and applicable law. Contact us promptly about errors or cancellation requests.'],
+    ['Delays and limitations', 'To the extent permitted by applicable law, we are not responsible for fines, penalties, delays, or losses caused by inaccurate or incomplete information supplied by customers, agency decisions, changes in regulations, or circumstances outside our reasonable control. Nothing in these terms excludes liability that cannot lawfully be excluded.'],
+    ['Contact', 'Questions about these terms or an order? Email movingforwardpermitting@gmail.com.']
+  ];
+  return <main style={{fontFamily:'Arial,sans-serif',background:'#07111e',color:'#f8fafc',minHeight:'100vh',padding:'48px 24px'}}><article style={{maxWidth:820,margin:'auto',lineHeight:1.75}}><a style={{color:'#f5cf68'}} href="/">← Back to permit requests</a><h1>Terms of Service</h1><p>Effective November 19, 2026</p>{sections.map(([title,body])=><section key={title}><h2>{title}</h2><p style={{color:'#c2cedd'}}>{body}</p></section>)}<p>© 2026 Moving Forward Permitting Services. Operated by Moving Forward Permitting Service LLC.</p></article></main>;
+}
