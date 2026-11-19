@@ -12,6 +12,7 @@ export default function Home() {
   const [state,setState] = useState('Alabama');
   const [permitType,setPermitType] = useState('Trip Permit');
   const [rush,setRush] = useState(false);
+  const [acceptedTerms,setAcceptedTerms] = useState(false);
   const [busy,setBusy] = useState(false);
   const [message,setMessage] = useState('');
   const [received,setReceived] = useState(false);
@@ -19,6 +20,7 @@ export default function Home() {
   const request = useRef({});
   async function submit(event) {
     event.preventDefault(); if (busy) return;
+    if (!acceptedTerms) { setMessage('Please accept the Terms of Service and Privacy Policy before submitting.'); return; }
     let prepared;
     try { prepared = prepareOrder({...customer,orderItems:items,rush},{inquiry:true}); }
     catch(error) { setMessage(error.message); return; }
@@ -57,7 +59,7 @@ export default function Home() {
     </section>
     <section className="wrap" id="request" style={{paddingTop:0}}><h2>Build your permit request</h2><p>Request trip or fuel permit assistance for any of the 50 U.S. states. This is an inquiry, not a guarantee that a permit can be issued. We confirm eligibility, availability, and all fees before sending any payment link. One truck per request. We may contact you for additional state-specific information.</p>
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
-      {received ? <div className="card"><h3>We have your request.</h3><p>Save the reference above. Questions? Email <a href="mailto:movingforwardpermitting@gmail.com">movingforwardpermitting@gmail.com</a>.</p><button onClick={()=>{setReceived(false);setItems([]);setMessage('');request.current={};}}>Start another request</button></div> : <form onSubmit={submit}>
+      {received ? <div className="card"><h3>We have your request.</h3><p>Save the reference above. Questions? Email <a href="mailto:movingforwardpermitting@gmail.com">movingforwardpermitting@gmail.com</a>.</p><button onClick={()=>{setReceived(false);setItems([]);setAcceptedTerms(false);setMessage('');request.current={};}}>Start another request</button></div> : <form onSubmit={submit}>
         <div className="card"><h3>Company, contact & truck</h3><div className="grid">{sharedFields.map(([key,label])=>field(key,label))}</div><p className="note">Do not enter Social Security numbers, card details or passwords. We’ll arrange a secure way to collect any additional required documents.</p></div>
         <div style={{display:'none'}} aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e=>setWebsite(e.target.value)} /></label></div>
         <div className="card"><h3>Choose your permits</h3><div className="grid"><label>State<select value={state} onChange={e=>setState(e.target.value)}>{inquiryStates.map(s=><option key={s}>{s}</option>)}</select></label><label>Permit type requested<select value={permitType} onChange={e=>setPermitType(e.target.value)}>{['Trip Permit','Fuel Permit','Trip + Fuel Permit'].map(type=><option key={type} value={type}>{type==='Trip + Fuel Permit'?'Both trip and fuel permits':type}</option>)}</select></label></div><button type="button" style={{marginTop:20}} onClick={()=>{if(items.length<20)setItems([...items,{id:crypto.randomUUID(),state,permitType,details:{}}]);}}>Add permit inquiry</button>
@@ -91,8 +93,8 @@ export default function Home() {
             </div>;
           })}
         </div>
-        <div className="card"><h3>Processing preference</h3><label>Service level<select value={rush?'rush':'standard'} onChange={e=>setRush(e.target.value==='rush')}><option value="standard">Standard — $35 service fee per permit</option><option value="rush">Request rush — $50 service fee per permit</option></select></label><p>State and required provider fees are additional. The selected permit type is a request only. We confirm whether a state issues a combination permit or requires two separate permits before quoting.</p><p className="note">We’ll confirm eligibility, dates, fees and availability before requesting payment. No permit is issued until processing is completed. Do not begin travel without the required valid permits.</p><button disabled={busy||!items.length} type="submit">{busy?'Submitting…':'Send permit inquiry — no payment today'}</button><p className="note">By submitting, you authorize us to contact you about this request and use the information to prepare your permit order.</p></div>
+        <div className="card"><h3>Processing preference</h3><label>Service level<select value={rush?'rush':'standard'} onChange={e=>setRush(e.target.value==='rush')}><option value="standard">Standard — $35 service fee per permit</option><option value="rush">Request rush — $50 service fee per permit</option></select></label><p>State and required provider fees are additional. The selected permit type is a request only. We confirm whether a state issues a combination permit or requires two separate permits before quoting.</p><p className="note">We’ll confirm eligibility, dates, fees and availability before requesting payment. No permit is issued until processing is completed. Do not begin travel without the required valid permits.</p><label style={{display:'flex',alignItems:'flex-start',gap:12,margin:'20px 0'}}><input type="checkbox" required checked={acceptedTerms} onChange={e=>setAcceptedTerms(e.target.checked)} style={{width:20,height:20,margin:0,flexShrink:0}}/><span>I have read and agree to the <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a> and acknowledge the <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</span></label><button disabled={busy||!items.length||!acceptedTerms} type="submit">{busy?'Submitting…':'Send permit inquiry — no payment today'}</button><p className="note">By submitting, you authorize us to contact you about this request and use the information to prepare your permit order.</p></div>
       </form>}
-    </section><footer>© {new Date().getFullYear()} Moving Forward Permitting Services · <a href="mailto:movingforwardpermitting@gmail.com">Email us</a></footer>
+    </section><footer>© {new Date().getFullYear()} Moving Forward Permitting Services · Operated by Moving Forward Permitting Service LLC · <a href="/terms">Terms of Service</a> · <a href="/privacy">Privacy Policy</a> · <a href="mailto:movingforwardpermitting@gmail.com">Email us</a></footer>
   </main>;
 }
