@@ -99,7 +99,7 @@ export default function Home() {
               {extraPermitFields(item.state,item.permitType).map(field=><label key={field.key} htmlFor={`${item.id}-${field.key}`}>{field.label} (optional for inquiry)
                 {field.inputType==='select'?<select id={`${item.id}-${field.key}`} required={false} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}>
                   <option value="">Select</option>{field.options.map(option=><option key={option}>{option}</option>)}
-                </select>:<input id={`${item.id}-${field.key}`} required={field.required} type={field.inputType||'text'} min={field.inputType==='number'?1:undefined} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}/>}
+                </select>:<input id={`${item.id}-${field.key}`} required={false} type={field.inputType||'text'} min={field.inputType==='number'?1:undefined} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}/>}
               </label>)}</div>
               <button className="secondary" style={{marginTop:18}} type="button" onClick={()=>setItems(items.filter(entry=>entry.id!==item.id))}>Remove request</button>
             </div>;
