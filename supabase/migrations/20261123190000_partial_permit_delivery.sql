@@ -41,7 +41,7 @@ begin
      or v_order.order_status not in ('processing','issued','partially_delivered','delivery_queued') then
     raise exception 'Order is not ready for individual permit delivery';
   end if;
-  if v_order.quote->>'stripeMode' <> 'live' then
+  if (v_order.quote->>'stripeMode') is distinct from 'live' then
     raise exception 'Only confirmed live payments can release issued permits';
   end if;
   v_total := jsonb_array_length(coalesce(v_order.order_items,'[]'::jsonb));
