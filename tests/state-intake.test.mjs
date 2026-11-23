@@ -6,8 +6,8 @@ const customer=Object.fromEntries(sharedFields.map(([key])=>[key,'Example']));
 Object.assign(customer,{usdot:'1234567',vin:'1M8GDM9AXKP042788',email:'example@example.com',registeredWeight:'80000',axles:'5',irpStatus:'no',iftaStatus:'no',phoneNumber:'2055550100'});
 const make=(state,permitType,details)=>({...customer,orderItems:[{state,permitType,details}]});
 const start={'Beginning Travel Date':'2026-11-20'};
-test('trip intake for Kansas, Arkansas, Iowa and Georgia requires no clock time',()=>{
- for(const state of ['Kansas','Arkansas','Iowa','Georgia']){
+test('trip intake for Kansas, Arkansas and Iowa requires no clock time',()=>{
+ for(const state of ['Kansas','Arkansas','Iowa']){
    const result=prepareOrder(make(state,'Trip Permit',start));
    assert.equal(result.orderItems[0].details['Effective Time'],'');
    assert.equal(result.orderItems[0].details['Time Zone'],'');
@@ -64,4 +64,31 @@ test('nationwide inquiry rejects invalid state, invalid optional effective time,
   assert.throws(()=>prepareOrder(make('Atlantis','Trip Permit',start),{inquiry:true}),/supported state/);
   assert.throws(()=>prepareOrder(make('Alabama','Trip Permit',{'Effective Time':'10:00'}),{inquiry:true}),/travel dates/);
   assert.throws(()=>prepareOrder(make('Alabama','Trip Permit',{...start,'Effective Time':'25:30'}),{inquiry:true}),/effective time/);
+});
+
+test('Georgia adds safety USDOT and unladen weight from official trip portal',()=>{
+ assert.throws(()=>prepareOrder(make('Georgia','Trip Permit',start)),/Georgia Safety USDOT/);
+ const details={...start,'Georgia Safety USDOT':'1234567','Georgia Unladen Weight':'17500'};
+ const result=prepareOrder(make('Georgia','Trip Permit',details));
+ assert.equal(result.orderItems[0].details['Georgia Unladen Weight'],'17500');
+ assert.throws(()=>prepareOrder(make('Georgia','Trip Permit',{...details,'Georgia Unladen Weight':'0'})),/unladen/);
+});
+test('Kentucky temporary permits request safety USDOT and flag KYU checks',()=>{
+ assert.throws(()=>prepareOrder(make('Kentucky','Trip Permit',start)),/Kentucky Safety USDOT/);
+ const result=prepareOrder(make('Kentucky','Trip Permit',{...start,'Kentucky Safety USDOT':'1234567','Kentucky KYU Status':'Not sure'}));
+ assert.equal(result.orderItems[0].details['Kentucky KYU Status'],'Not sure');
+});
+test('Missouri temporary permits require effective time and vehicle descriptors',()=>{
+ assert.throws(()=>prepareOrder(make('Missouri','Trip Permit',start)),/Effective Time/);
+ const fields={...start,'Effective Time':'11:00','Missouri Model Year':'2020','Missouri Vehicle Body Type':'Straight truck'};
+ assert.equal(prepareOrder(make('Missouri','Trip Permit',fields)).orderItems[0].details['Missouri Model Year'],'2020');
+});
+test('Virginia leased permits require lessor information',()=>{
+ const fields={...start,'Virginia Plate Expiration Date':'2027-10-31','Virginia Vehicle Model':'Cascadia','Virginia Lease Status':'Leased'};
+ assert.throws(()=>prepareOrder(make('Virginia','Trip Permit',fields)),/lessor/);
+ assert.equal(prepareOrder(make('Virginia','Trip Permit',{...fields,'Virginia Lessor Name':'Owner Transport LLC'})).orderItems[0].details['Virginia Lease Status'],'Leased');
+});
+test('public inquiry can save partial state portal information without pretending all fields verified',()=>{
+ const r=prepareOrder(make('Georgia','Trip Permit',start),{inquiry:true});
+ assert.equal(r.orderItems[0].details['Georgia Safety USDOT'],'');
 });

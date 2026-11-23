@@ -8,6 +8,7 @@ import {reviewedQuote,verifyPayment} from '../lib/quote.mjs';
 const customer=Object.fromEntries(sharedFields.map(([key])=>[key,'Example']));
 Object.assign(customer,{usdot:'1234567',vin:'1M8GDM9AXKP042788',email:'example@example.com',registeredWeight:'80000',axles:'5',irpStatus:'no',iftaStatus:'no',phoneNumber:'2055550100'});
 const details=Object.fromEntries(permitFields.map(field=>[field,'Example']));
+Object.assign(details,{'Georgia Safety USDOT':'1234567','Georgia Unladen Weight':'17500'});
 Object.assign(details,{'Beginning Travel Date':'2026-11-01','Trip End Date':'2026-11-02','Effective Time':'08:00','Time Zone':'America/Chicago'});
 const item={state:'Georgia',permitType:'Trip Permit',details,stateFee:0};
 const input=(extra={})=>({...customer,orderItems:[item,item],total:1,...extra});
@@ -16,7 +17,7 @@ const line=(extra={})=>({stateCents:3000,otherCents:0,source:'https://dor.georgi
 const quote=(extra={})=>({reviewConfirmed:true,lines:[line(),line()],...extra});
 
 test('intake stores unknown-fee states without charging or trusting client prices',()=>{
- const result=prepareOrder(input({orderItems:[{...item,state:'Kentucky'}]}));
+ const result=prepareOrder(input({orderItems:[{...item,state:'Kentucky',details:{...details,'Kentucky Safety USDOT':'1234567'}}]}));
  assert.equal(result.orderItems[0].state,'Kentucky');assert.equal(result.total,undefined);assert.equal(result.orderItems[0].stateFee,undefined);
 });
 test('intake retains carrier, vehicle, email and travel details',()=>{const r=prepareOrder(input());assert.equal(r.customer.email,customer.email);assert.equal(r.orderItems[0].details['Trip End Date'],'2026-11-02');assert.equal(r.customer.businessAddress,'Example');});
