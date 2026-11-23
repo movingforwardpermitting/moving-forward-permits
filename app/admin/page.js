@@ -5,11 +5,11 @@ import { quotePreview, quoteLineMissing, initialQuoteLines, permitFeeReferences 
 let browserClient;
 function authClient() { return browserClient ||= createClient(process.env.NEXT_PUBLIC_SUPABASE_URL,process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,{auth:{persistSession:false,autoRefreshToken:true}}); }
 const money = cents => `$${(cents/100).toFixed(2)}`;
-const statusLabels = {draft:'Phone draft — saved',pending_review:'Needs review',missing_information:'Missing information',quote_preparing:'Preparing payment link',payment_requested:'Awaiting payment',paid:'Paid — ready to process',processing:'Processing',issued:'Issued — review for delivery',delivery_preparing:'Preparing delivery',delivery_queued:'Delivery queued',delivery_sent:'Email accepted by provider',blocked:'Blocked',cancelled:'Cancelled'};
+const statusLabels = {draft:'Phone draft — saved',pending_review:'Needs review',missing_information:'Missing information',quote_preparing:'Preparing payment link',payment_requested:'Awaiting payment',paid:'Paid — ready to process',processing:'Processing',partially_delivered:'Partially delivered — more permits pending',issued:'Issued — review for delivery',delivery_preparing:'Preparing delivery',delivery_queued:'Delivery queued',delivery_sent:'Email accepted by provider',blocked:'Blocked',cancelled:'Cancelled'};
 export default function Admin() {
   const [session,setSession] = useState(null), [email,setEmail] = useState(''), [password,setPassword] = useState('');
   const [orders,setOrders] = useState([]), [pending,setPending] = useState([]), [selected,setSelected] = useState(null);
-  const [lines,setLines] = useState([]), [confirmed,setConfirmed] = useState(false), [availabilityConfirmed,setAvailabilityConfirmed]=useState(false), [files,setFiles] = useState([]), [busy,setBusy] = useState(false), [message,setMessage] = useState(''), [savedAt,setSavedAt]=useState(''), [diagnostics,setDiagnostics]=useState(null);
+  const [lines,setLines] = useState([]), [confirmed,setConfirmed] = useState(false), [availabilityConfirmed,setAvailabilityConfirmed]=useState(false), [itemFiles,setItemFiles] = useState({}), [itemChecks,setItemChecks]=useState({}), [busy,setBusy] = useState(false), [message,setMessage] = useState(''), [savedAt,setSavedAt]=useState(''), [diagnostics,setDiagnostics]=useState(null);
   useEffect(()=>{let unsubscribe;try {const {data}=authClient().auth.onAuthStateChange((_event,next)=>setSession(next));unsubscribe=data.subscription;}catch{setMessage('Admin authentication is not configured yet.');}return()=>unsubscribe?.unsubscribe();},[]);
   async function api(path,body,form=false) {
     const {data}=await authClient().auth.getSession();
@@ -20,7 +20,7 @@ export default function Admin() {
   async function load(){const result=await api('/api/admin-orders');setOrders(result.orders);setPending(result.pendingNotifications||[]);setSelected(current=>current?result.orders.find(o=>o.order_number===current.order_number)||null:null);}
   useEffect(()=>{if(session)load().catch(e=>setMessage(e.message));else{setOrders([]);setSelected(null);}},[session]);
   async function act(action){setBusy(true);setMessage('');try{await action();await load();}catch(e){setMessage(e.message);}finally{setBusy(false);}}
-  function choose(order){setSelected(order);setConfirmed(false);setAvailabilityConfirmed(false);setFiles([]);setSavedAt(order.quote?.draft?order.quote.lastEditedAt:'');setLines(initialQuoteLines(order.order_items||[],order.quote?.lines||[]));}
+  function choose(order){setSelected(order);setConfirmed(false);setAvailabilityConfirmed(false);setItemFiles({});setItemChecks({});setSavedAt(order.quote?.draft?order.quote.lastEditedAt:'');setLines(initialQuoteLines(order.order_items||[],order.quote?.lines||[]));}
   function edit(i,key,value){setLines(lines.map((line,j)=>j===i?{...line,[key]:value}:line));setConfirmed(false);setAvailabilityConfirmed(false);}
   const preview=quotePreview(lines,selected?.order_items||[],selected?.processing_type);
   const approvedQuote=['quote_preparing','payment_requested'].includes(selected?.order_status);
@@ -78,7 +78,47 @@ export default function Admin() {
 </div>}
 <label><input type="checkbox" disabled={!approvedQuote&&!preview.ready} checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>I reviewed eligibility, vehicle, dates, state/provider fees, rush availability and combination treatment. I authorize this payment request.</label><button disabled={busy||phoneCard||(!approvedQuote&&(!confirmed||!preview.ready||(availabilityCheckNeeded&&!availabilityConfirmed)))} onClick={()=>act(async()=>{const result=await api('/api/admin-quote',{orderNumber:selected.order_number,lines,reviewConfirmed:confirmed,availabilityConfirmed:availabilityConfirmed});setMessage(`Payment link queued for customer: ${result.url}`);})}>{selected.order_status==='payment_requested'?'Retry quote notification':selected.order_status==='quote_preparing'?'Resume payment link':'Approve quote & email payment link'}</button></>}
         {['pending_review','missing_information','paid','processing','blocked'].includes(selected.order_status)&&<div><h3>Update progress</h3>{({pending_review:['missing_information','cancelled'],missing_information:['pending_review','cancelled'],paid:['processing','blocked'],processing:['issued','blocked'],blocked:['processing']}[selected.order_status]||[]).map(status=><button disabled={busy} key={status} onClick={()=>act(async()=>{await api('/api/update-order-status',{orderNumber:selected.order_number,status});setMessage('Status saved.');})}>{statusLabels[status]}</button>)}</div>}
-        {selected.order_status==='issued'&&<div><h3>Review & deliver issued permits</h3><input type="file" accept="application/pdf" multiple onChange={e=>{setFiles(Array.from(e.target.files));setConfirmed(false);}}/><label><input type="checkbox" checked={confirmed} onChange={e=>setConfirmed(e.target.checked)}/>I checked every issued permit against the approved carrier, VIN, state, permit type and validity dates. I authorize email delivery to {selected.contact_email}.</label><button disabled={busy||!confirmed||!files.length} onClick={()=>act(async()=>{const form=new FormData();form.set('orderNumber',selected.order_number);form.set('reviewConfirmed','true');files.forEach(file=>form.append('permits',file));const result=await api('/api/admin-delivery',form,true);setMessage(result.message);})}>Upload & email reviewed permits</button></div>}
+                {selected.payment_status==='paid' && ['paid','processing','issued','partially_delivered','delivery_queued','delivery_sent'].includes(selected.order_status)&&
+          <div><h3>Deliver permits by state</h3>
+          <p>Upload each state or permit as soon as its issued PDF arrives. The customer gets a separate email for each permit item, and the other items remain open.</p>
+          {selected.quote?.stripeMode==='test'
+            ?<div className="notice">Sandbox order: no real permit delivery. Do not upload documents here.</div>
+            :<>
+              <p><strong>{(selected.itemDeliveries||[]).filter(x=>x.delivery_status==='sent').length} of {(selected.order_items||[]).length} emailed successfully.</strong> Items marked Awaiting email remain queued until the email provider accepts them.</p>
+              {(selected.order_items||[]).map((item,index)=>{
+                const delivered=(selected.itemDeliveries||[]).find(x=>x.item_index===index);
+                const allowed=['processing','issued','partially_delivered','delivery_queued'].includes(selected.order_status);
+                return <div className="card" key={index}>
+                  <h4>Permit {index+1}: {item.state} — {item.permitType}</h4>
+                  {delivered
+                    ?<p><strong>{delivered.delivery_status==='sent'?'Delivered — customer email accepted':'Awaiting email — do not upload again'}</strong></p>
+                    :allowed
+                      ?<>
+                        <p>Not delivered. Choose one or more official issued PDFs for this permit item only.</p>
+                        <input type="file" accept="application/pdf" multiple
+                          onChange={e=>{setItemFiles(v=>({...v,[index]:Array.from(e.target.files)}));setItemChecks(v=>({...v,[index]:false}));}} />
+                        <label><input type="checkbox" checked={!!itemChecks[index]}
+                          onChange={e=>setItemChecks(v=>({...v,[index]:e.target.checked}))}/>
+                          I verified this {item.state} permit against the carrier, VIN, permit type, validity dates and printing requirements. Send it to {selected.contact_email}.</label>
+                        <button type="button" disabled={busy||!itemChecks[index]||!(itemFiles[index]?.length)}
+                          onClick={()=>act(async()=>{
+                            const form=new FormData();
+                            form.set('orderNumber',selected.order_number);
+                            form.set('itemIndex',String(index));
+                            form.set('reviewConfirmed','true');
+                            itemFiles[index].forEach(file=>form.append('permits',file));
+                            const result=await api('/api/admin-item-delivery',form,true);
+                            setItemFiles(v=>({...v,[index]:[]}));
+                            setItemChecks(v=>({...v,[index]:false}));
+                            setMessage(result.message);
+                          })}>Upload & email {item.state} permit</button>
+                      </>
+                      :<p>Mark the paid order Processing before uploading individual permits.</p>}
+                </div>;
+              })}
+            </>
+          }
+          </div>}
         {selected.order_status==='delivery_preparing'&&<p>A delivery is in progress or needs recovery. Contact support before retrying; do not create a second delivery.</p>}
       </div>}</div></div>
     </>}
