@@ -57,6 +57,18 @@ export default function Home() {
       <div className="grid" style={{marginTop:30}}>{[['1. Request','Share your carrier, truck and travel details.'],['2. Review & pay','Receive a reviewed quote and secure Stripe payment link.'],['3. Receive your permits','We obtain your permits and email them after review.']].map(([title,text])=><div className="card" key={title}><h3>{title}</h3><p>{text}</p></div>)}</div>
       <p className="note">Trip and fuel permits only. Oversize/overweight permitting is not offered. Rush requests are subject to availability and state processing requirements.</p>
     </section>
+    <section className="wrap" id="contact" aria-labelledby="contact-heading" style={{paddingTop:0}}>
+      <div className="card" style={{marginTop:0}}>
+        <h2 id="contact-heading">Contact &amp; support hours</h2>
+        <p style={{marginBottom:8}}>Our current support windows are:</p>
+        <div className="grid">
+          <div><strong>Daytime</strong><p style={{margin:'8px 0'}}>9:00 AM–1:00 PM</p></div>
+          <div><strong>Evening / Overnight</strong><p style={{margin:'8px 0'}}>7:00 PM–3:00 AM (next day)</p></div>
+        </div>
+        <p className="note">All hours are Central Time (CT). Availability may vary by day. Urgent and rush permit requests depend on state issuing hours and eligibility; these hours do not guarantee permit issuance.</p>
+        <p><strong>Email:</strong> <a href="mailto:movingforwardpermitting@gmail.com">movingforwardpermitting@gmail.com</a></p>
+      </div>
+    </section>
     <section className="wrap" id="request" style={{paddingTop:0}}><h2>Build your permit request</h2><p>Request trip or fuel permit assistance for any of the 50 U.S. states. This is an inquiry, not a guarantee that a permit can be issued. We confirm eligibility, availability, and all fees before sending any payment link. One truck per request. We may contact you for additional state-specific information.</p>
       {message && <div className="notice" role="status" aria-live="polite">{message}</div>}
       {received ? <div className="card"><h3>We have your request.</h3><p>Save the reference above. Questions? Email <a href="mailto:movingforwardpermitting@gmail.com">movingforwardpermitting@gmail.com</a>.</p><button onClick={()=>{setReceived(false);setItems([]);setAcceptedTerms(false);setMessage('');request.current={};}}>Start another request</button></div> : <form onSubmit={submit}>
