@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { sharedFields, permitFields, inquiryStates, prepareOrder } from '../lib/order.mjs';
-import { permitIntakeRule, extraPermitFields } from '../lib/permit-requirements.mjs';
+import { permitIntakeRule } from '../lib/permit-requirements.mjs';
 import { suggestedExpirationDate, applySuggestedExpiration } from '../lib/permit-duration.mjs';
 
 const initialCustomer = Object.fromEntries(sharedFields.map(([key]) => [key, '']));
@@ -83,8 +83,7 @@ export default function Home() {
               <h3>{index+1}. {item.state} · {item.permitType}</h3>
               <p className="note"><strong>Inquiry only — availability must be confirmed.</strong> Government charges, provider fees, and our service fee will be reviewed before a payment request is sent.</p>
               {rule.unsupported&&<div className="notice">This state or permit combination may require an alternate procedure. We will confirm whether we can assist before sending any payment request.</div>}
-              <p className="note">{rule.note} {rule.url&&<a href={rule.url} target="_blank" rel="noopener noreferrer">State information</a>}</p>
-              {rule.documentReminder&&<p className="note"><strong>Documents to prepare:</strong> {rule.documentReminder}</p>}
+              <p className="note">We handle the state permit ordering after reviewing your request. Please answer the travel questions below. If anything else is needed, we'll contact you directly.</p>
               {suggestion&&<p className="note">Suggested expiration date: <strong>{suggestion.date}</strong> ({suggestion.hours} hours). Actual validity depends on the issued permit.</p>}
               <div className="grid">{permitFields.map(name=>{
                 const necessary=name==='Beginning Travel Date';
@@ -96,11 +95,7 @@ export default function Home() {
                   maxLength={2000} value={item.details[name]||''} onChange={e=>changeDetail(item.id,name,e.target.value)}/>}
                 </label>;
               })}
-              {extraPermitFields(item.state,item.permitType).map(field=><label key={field.key} htmlFor={`${item.id}-${field.key}`}>{field.label} (optional for inquiry)
-                {field.inputType==='select'?<select id={`${item.id}-${field.key}`} required={false} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}>
-                  <option value="">Select</option>{field.options.map(option=><option key={option}>{option}</option>)}
-                </select>:<input id={`${item.id}-${field.key}`} required={false} type={field.inputType||'text'} min={field.inputType==='number'?1:undefined} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}/>}
-              </label>)}</div>
+</div>
               <button className="secondary" style={{marginTop:18}} type="button" onClick={()=>setItems(items.filter(entry=>entry.id!==item.id))}>Remove request</button>
             </div>;
           })}
