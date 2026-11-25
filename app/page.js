@@ -83,8 +83,7 @@ export default function Home() {
               <h3>{index+1}. {item.state} · {item.permitType}</h3>
               <p className="note"><strong>Inquiry only — availability must be confirmed.</strong> Government charges, provider fees, and our service fee will be reviewed before a payment request is sent.</p>
               {rule.unsupported&&<div className="notice">This state or permit combination may require an alternate procedure. We will confirm whether we can assist before sending any payment request.</div>}
-              <p className="note">{rule.note} {rule.url&&<a href={rule.url} target="_blank" rel="noopener noreferrer">State information</a>}</p>
-              {rule.documentReminder&&<p className="note"><strong>Documents to prepare:</strong> {rule.documentReminder}</p>}
+              <p className="note">We handle the state permit ordering after reviewing your request. Please answer the travel questions below. If anything else is needed, we'll contact you directly.</p>
               {suggestion&&<p className="note">Suggested expiration date: <strong>{suggestion.date}</strong> ({suggestion.hours} hours). Actual validity depends on the issued permit.</p>}
               <div className="grid">{permitFields.map(name=>{
                 const necessary=name==='Beginning Travel Date';
