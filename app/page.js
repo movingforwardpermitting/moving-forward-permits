@@ -1,7 +1,7 @@
 'use client';
 import { useRef, useState } from 'react';
 import { sharedFields, permitFields, inquiryStates, prepareOrder } from '../lib/order.mjs';
-import { permitIntakeRule, extraPermitFields } from '../lib/permit-requirements.mjs';
+import { permitIntakeRule } from '../lib/permit-requirements.mjs';
 import { suggestedExpirationDate, applySuggestedExpiration } from '../lib/permit-duration.mjs';
 
 const initialCustomer = Object.fromEntries(sharedFields.map(([key]) => [key, '']));
@@ -95,11 +95,7 @@ export default function Home() {
                   maxLength={2000} value={item.details[name]||''} onChange={e=>changeDetail(item.id,name,e.target.value)}/>}
                 </label>;
               })}
-              {extraPermitFields(item.state,item.permitType).map(field=><label key={field.key} htmlFor={`${item.id}-${field.key}`}>{field.label} (optional for inquiry)
-                {field.inputType==='select'?<select id={`${item.id}-${field.key}`} required={false} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}>
-                  <option value="">Select</option>{field.options.map(option=><option key={option}>{option}</option>)}
-                </select>:<input id={`${item.id}-${field.key}`} required={false} type={field.inputType||'text'} min={field.inputType==='number'?1:undefined} value={item.details[field.key]||''} onChange={e=>changeDetail(item.id,field.key,e.target.value)}/>}
-              </label>)}</div>
+</div>
               <button className="secondary" style={{marginTop:18}} type="button" onClick={()=>setItems(items.filter(entry=>entry.id!==item.id))}>Remove request</button>
             </div>;
           })}
